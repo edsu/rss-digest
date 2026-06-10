@@ -99,18 +99,6 @@ def summarize(articles: list[dict], hours: int, model: str, system_prompt: str =
     return response.choices[0].message.content
 
 
-def make_banner(date: str, article_count: int, site_count: int, html: bool = False) -> str:
-    border = "══════════════════════════"
-    w = len(border)
-    stats = f"{article_count} articles · {site_count} sites"
-    text = (
-        f'{border}\n    R S S  D I G E S T\n{border}\n'
-        f'{date.center(w)}\n{stats.center(w)}'
-    )
-    if html:
-        return f'<div align="center">\n<pre>\n{text}\n</pre>\n</div>'
-    return text
-
 
 def to_html(md_text: str, title: str) -> str:
     import markdown as md_lib
@@ -124,7 +112,6 @@ def to_html(md_text: str, title: str) -> str:
   body {{ max-width: 800px; margin: 2em auto; font-family: sans-serif; line-height: 1.6; }}
   a {{ color: #0066cc; }}
   h3 {{ margin-top: 1.5em; }}
-  div[align="center"] pre {{ display: inline-block; }}
 </style>
 </head>
 <body>
@@ -217,10 +204,12 @@ async def main() -> None:
 
     title = f"RSS Digest — {date}"
     site_count = len({a["feed_name"] for a in articles})
+    stats = f"*{len(articles)} articles · {site_count} sites*"
+    header = f"# {title}\n\n{stats}\n"
     if args.html:
-        content = to_html(f"{make_banner(date, len(articles), site_count, html=True)}\n\n{digest}", title)
+        content = to_html(f"{header}\n{digest}", title)
     else:
-        content = f"{make_banner(date, len(articles), site_count)}\n\n{digest}\n"
+        content = f"{header}\n{digest}\n"
     output.write_text(content)
     log(f"Written to {output}")
 

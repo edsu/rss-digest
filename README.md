@@ -146,11 +146,9 @@ directory!
 See [example.md](example.md) for a real digest. A short excerpt:
 
 ```markdown
-══════════════════════════
-    R S S  D I G E S T
-══════════════════════════
-         2026-06-10
-   47 articles · 12 sites
+# RSS Digest — 2026-06-10
+
+*47 articles · 12 sites*
 
 ### Space & Science
 
