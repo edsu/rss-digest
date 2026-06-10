@@ -1,0 +1,31 @@
+[project]
+name = "rss-digest"
+version = "0.0.1"
+description = "Generate an RSS digest from any GReader-compatible feed reader using an LLM"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx",
+    "litellm",
+    "markdown",
+    "pydantic-settings",
+]
+
+[project.scripts]
+rss-digest = "rss_digest.digest:main_sync"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rss_digest"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
