@@ -1,7 +1,8 @@
 [project]
 name = "rss-digest"
-version = "0.0.2"
+version = "0.0.3"
 description = "Generate an RSS digest from any GReader-compatible feed reader using an LLM"
+readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
