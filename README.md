@@ -18,10 +18,10 @@ Generates a daily digest from your self-hosted RSS reader using an AI language m
 
 ```bash
 # with uv
-uv tool install git+https://github.com/edsu/rss-digest
+uv tool install rss-digest
 
 # with pipx
-pipx install git+https://github.com/edsu/rss-digest
+pipx install rss-digest
 ```
 
 ## Quick start
@@ -53,6 +53,10 @@ All options can be set on the command line. Credentials fall back to environment
 | `--model MODEL` | | `anthropic/claude-sonnet-4-6` |
 | `--html` | | off |
 | `--system-prompt-file FILE` | | built-in prompt |
+| `--mark-read` | | off |
+| `--output PATH` | | `./digest-YYYY-MM-DD.md` |
+| `--quiet` | | off |
+| `--log-file FILE` | | off |
 
 ```bash
 # Last 48 hours, HTML output
@@ -136,21 +140,24 @@ The user message sent to the model is always a structured list of articles group
 
 ## Example output
 
+See [example.md](example.md) for a real digest. A short excerpt:
+
 ```markdown
-# RSS Digest — 2026-06-10
+### Space & Science
 
-### Technology
+NASA announced the four-person Artemis III crew, though experts question whether a
+2028 moon landing is truly achievable given dependence on Musk and Bezos. SpaceX's
+coming IPO will mint 4,400 employee millionaires. On the science side: new research
+shows quantum physics can generate truly random numbers for encryption, and a study
+finds Indonesia's landslides wiped out more than 5% of an endangered orangutan population.
 
-- [Python 3.14 released](https://python.org/...) (Python.org) — Adds experimental
-  free-threaded mode and a new template string syntax.
-- [Mistral releases Magistral](https://mistral.ai/...) (The Verge) — A new reasoning
-  model competitive with o3 on math benchmarks.
+### Culture & Ideas
 
-### Science & Environment
-
-The past day brought several significant climate stories. [A new study in Nature](...)
-finds Arctic permafrost thawing 70 years ahead of projections, while [the EU announced](...)
-a binding 2035 target for carbon-neutral shipping. And 6 more from Reuters Environment.
+3QD's essay on Ray Johnson and John Cage explores the MoMA collage room. Dina Nayeri
+writes in The Guardian about Iran's stolen revolution and the fractured diaspora.
+Iron & Wine's Sam Beam speaks to The Creative Independent about fear, privacy, and
+always developing as an artist. And 404 Media reports that scientists accidentally
+discovered people in crowds spontaneously walk counterclockwise — everywhere in the world.
 ```
 
 ## Running on a schedule
@@ -170,8 +177,8 @@ GREADER_USERNAME=yourname
 GREADER_PASSWORD=yourpassword
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Run at 6am every day, write an HTML digest to the Desktop
-0 6 * * * /Users/yourname/.local/bin/rss-digest --html
+# Run at 6am every day, write an HTML digest to a specific folder
+0 6 * * * /Users/yourname/.local/bin/rss-digest --html --quiet --log-file /tmp/rss-digest.log --output /Users/yourname/Documents/digest.html
 ```
 
 Crontab env-var lines apply to all jobs below them in the file, so you only need to set them once.

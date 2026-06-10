@@ -13,6 +13,7 @@ Time window defaults to 24 hours; override with DIGEST_HOURS.
 import argparse
 import asyncio
 import html
+import logging
 import os
 import re
 import sys
@@ -53,16 +54,19 @@ def strip_html(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
-async def fetch_articles(config: Config, hours: int) -> list[dict]:
+async def fetch_articles(config: Config, hours: int, mark_read: bool = False) -> list[dict]:
     client = GReaderClient(config)
     cutoff = int(time.time()) - hours * 3600
     try:
         articles = await client.get_articles(limit=MAX_ARTICLES, since_timestamp=cutoff)
-        return [
+        result = [
             {**a.to_dict(), "summary": strip_html(a.summary)[:MAX_SUMMARY_LENGTH]}
             for a in articles
             if a.published >= cutoff
         ]
+        if mark_read and result:
+            await client.mark_as_read([a["id"] for a in result])
+        return result
     finally:
         await client.aclose()
 
@@ -132,7 +136,19 @@ async def main() -> None:
                         metavar="PATH", help=f"GReader API path (default: {DEFAULT_API_PATH})")
     parser.add_argument("--system-prompt-file", type=Path, metavar="FILE",
                         help="File containing a replacement system prompt")
+    parser.add_argument("--mark-read", action="store_true",
+                        help="Mark fetched articles as read in the feed reader")
+    parser.add_argument("--output", type=Path, metavar="PATH",
+                        help="Output file path (default: ./digest-YYYY-MM-DD.md/html)")
+    parser.add_argument("--quiet", action="store_true",
+                        help="Suppress progress messages (errors are always shown)")
+    parser.add_argument("--log-file", type=Path, metavar="FILE",
+                        help="Append log output to a file")
     args = parser.parse_args()
+
+    if args.log_file:
+        logging.basicConfig(filename=args.log_file, level=logging.WARNING,
+                            format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
     missing = [name for name, val in [
         ("--url / $GREADER_URL", args.url),
@@ -160,17 +176,21 @@ async def main() -> None:
     model = args.model
     date = datetime.now().strftime("%Y-%m-%d")
     ext = "html" if args.html else "md"
-    output = Path.home() / "Desktop" / f"digest-{date}.{ext}"
+    output = args.output or Path(f"digest-{date}.{ext}")
 
-    print(f"Fetching articles (last {hours}h)...", file=sys.stderr)
-    articles = await fetch_articles(config, hours)
-    print(f"Got {len(articles)} articles", file=sys.stderr)
+    def log(msg: str) -> None:
+        if not args.quiet:
+            print(msg, file=sys.stderr)
+
+    log(f"Fetching articles (last {hours}h)...")
+    articles = await fetch_articles(config, hours, mark_read=args.mark_read)
+    log(f"Got {len(articles)} articles")
 
     if not articles:
-        print("No unread articles found.", file=sys.stderr)
+        log("No unread articles found.")
         return
 
-    print(f"Summarizing with {model}...", file=sys.stderr)
+    log(f"Summarizing with {model}...")
     try:
         digest = summarize(articles, hours, model, system_prompt)
     except Exception as e:
@@ -187,7 +207,7 @@ async def main() -> None:
     else:
         content = f"# {title}\n\n{digest}\n"
     output.write_text(content)
-    print(f"Written to {output}", file=sys.stderr)
+    log(f"Written to {output}")
 
 
 def main_sync() -> None:

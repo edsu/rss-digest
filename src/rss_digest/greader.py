@@ -179,6 +179,17 @@ class GReaderClient:
                     pass
         return hash(article_id_str) % 1_000_000_000
 
+    async def mark_as_read(self, article_ids: list[int]) -> None:
+        await self._ensure_authenticated()
+        url = f"{self.api_url}/reader/api/0/edit-tag"
+        # Send in batches to avoid overly long requests
+        for i in range(0, len(article_ids), 100):
+            batch = article_ids[i:i + 100]
+            data = [("i", f"tag:google.com,2005:reader/item/{aid:016x}") for aid in batch]
+            data.append(("a", "user/-/state/com.google/read"))
+            response = await self._client.post(url, headers=self._auth_headers(), data=data)
+            response.raise_for_status()
+
     async def aclose(self) -> None:
         if self._client and not self._client.is_closed:
             await self._client.aclose()

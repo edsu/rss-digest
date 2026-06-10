@@ -11,6 +11,10 @@ dependencies = [
     "pydantic-settings",
 ]
 
+[project.urls]
+Homepage = "https://github.com/edsu/rss-digest"
+Repository = "https://github.com/edsu/rss-digest"
+
 [project.scripts]
 rss-digest = "rss_digest.digest:main_sync"
 

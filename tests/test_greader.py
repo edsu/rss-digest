@@ -203,6 +203,39 @@ def test_article_to_dict():
     assert d["is_starred"] is True
 
 
+# --- mark_as_read ---
+
+
+async def test_mark_as_read(client):
+    client._auth_token = "tok"
+    mock_response = MagicMock()
+    mock_response.raise_for_status = MagicMock()
+
+    with patch.object(client._client, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
+        await client.mark_as_read([1, 2, 3])
+
+    assert mock_post.call_count == 1
+    data = mock_post.call_args.kwargs["data"]
+    ids = [v for k, v in data if k == "i"]
+    assert ids == [
+        "tag:google.com,2005:reader/item/0000000000000001",
+        "tag:google.com,2005:reader/item/0000000000000002",
+        "tag:google.com,2005:reader/item/0000000000000003",
+    ]
+    assert ("a", "user/-/state/com.google/read") in data
+
+
+async def test_mark_as_read_batches(client):
+    client._auth_token = "tok"
+    mock_response = MagicMock()
+    mock_response.raise_for_status = MagicMock()
+
+    with patch.object(client._client, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
+        await client.mark_as_read(list(range(150)))
+
+    assert mock_post.call_count == 2
+
+
 # --- Lifecycle ---
 
 
