@@ -6,7 +6,7 @@
 </pre>
 </div>
 
-Generates a daily digest from your self-hosted RSS reader using an AI language model. Instead of scrolling through hundreds of unread articles, you get a single readable summary grouped by theme — delivered as a Markdown or HTML file.
+Generates a digest from your self-hosted RSS reader using an AI language model. Instead of scrolling through hundreds of unread articles, you get a single readable summary grouped by theme — delivered as a Markdown or HTML file.
 
 ## What you need
 
