@@ -138,6 +138,9 @@ Do not use bullet points or headings. Every article title must be a markdown lin
 
 The user message sent to the model is always a structured list of articles grouped by feed, so your prompt only needs to describe the desired output format.
 
+Please send prompts you like as PRs and I will add them to a prompt example
+directory!
+
 ## Example output
 
 See [example.md](example.md) for a real digest. A short excerpt:
