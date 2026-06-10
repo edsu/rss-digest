@@ -148,23 +148,15 @@ See [example.md](example.md) for a real digest. A short excerpt:
 ```markdown
 # RSS Digest — 2026-06-10
 
-*47 articles · 12 sites*
+*137 articles · 53 sites*
 
-### Space & Science
+### Science & Environment
 
-NASA announced the four-person Artemis III crew, though experts question whether a
-2028 moon landing is truly achievable given dependence on Musk and Bezos. SpaceX's
-coming IPO will mint 4,400 employee millionaires. On the science side: new research
-shows quantum physics can generate truly random numbers for encryption, and a study
-finds Indonesia's landslides wiped out more than 5% of an endangered orangutan population.
+NASA [announced the all-male Artemis III crew](https://www.nytimes.com/2026/06/09/science/space/artemis-iii-astronauts-nasa-crew.html) and faces questions about [whether a 2028 moon landing is realistic](https://www.nytimes.com/2026/06/09/science/space/nasa-artemis-moon-landing.html) given dependence on Musk and Bezos. Indonesia's landslides [wiped out over 5% of the endangered orangutan population](https://www.nytimes.com/2026/06/10/climate/indonesia-floods-organgutans.html). And scientists [accidentally found that crowds worldwide spontaneously walk counterclockwise](https://www.404media.co/scientists-just-accidentally-discovered-a-strange-hidden-rule-of-human-nature/).
 
 ### Culture & Ideas
 
-3QD's essay on Ray Johnson and John Cage explores the MoMA collage room. Dina Nayeri
-writes in The Guardian about Iran's stolen revolution and the fractured diaspora.
-Iron & Wine's Sam Beam speaks to The Creative Independent about fear, privacy, and
-always developing as an artist. And 404 Media reports that scientists accidentally
-discovered people in crowds spontaneously walk counterclockwise — everywhere in the world.
+3 Quarks Daily examines [what AGI means for the future of physics](https://3quarksdaily.com/3quarksdaily/2026/06/adam-brown-agi-the-future-of-physics.html), and Dina Nayeri writes on [Iran's stolen revolution and the failures of diaspora narrative](https://3quarksdaily.com/3quarksdaily/2026/06/stolen-revolution.html). Iron & Wine's Sam Beam [reflects on always developing and changing as an artist](https://thecreativeindependent.com/people/musician-sam-beam-iron-and-wine-on-always-developing-and-changing/). A fascinating science/humanities crossover: [ELIZA and what a 1966 chatbot's horrified inventor tells us about modern voice AI](https://cafebedouin.org/2026/06/10/eliza-learned-to-breathe/).
 ```
 
 ## Running on a schedule
