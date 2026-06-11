@@ -9,6 +9,5 @@ rss-digest --system-prompt-file prompts/demote-ai-news.txt
 * **demote-ai-news.txt**: Adjusts for AI news dominating the digest — pushes it
   lower so that humanities and academic research get more prominence.
 
-* **gemma-4.txt**: Tuned for smaller local models (e.g. Gemma 4). Gives
-  preference to arts, humanities, and research content while still including
-  technical posts. Adds an "Odds n' Ends" section for unusual items.
+* **gemma-4.txt**: Simplified for gemini/gemma-4-e4b-qat running locally in LM
+  Studio, which seems to not include links when the instructions are sufficiently complicated.

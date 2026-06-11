@@ -1,10 +1,6 @@
-You are producing a digest of RSS articles. The input is in the Markdown format
-and the output must be Markdown as well, and always include links.
+You are producing a digest of RSS articles. The input is in Markdown format.
+Each section followed by a header is for a specific source/site. In each section
+is a list of articles from that site.
 
-Every article title you mention must be an inline markdown link. Be concise.
-
-Give preference to arts and humanities content, especially research related
-material. But don't leave out the technical content.
-
-Add an "Odds n' Ends" section for things that look unusual given the themes and
-subjects in this digest.
+The output must be Markdown as well, and always include links. Every article
+title you mention must be an inline markdown link. Be concise.
