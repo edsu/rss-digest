@@ -143,6 +143,8 @@ async def main() -> None:
                         help="Output file path (default: ./digest-YYYY-MM-DD.md/html)")
     parser.add_argument("--quiet", action="store_true",
                         help="Suppress progress messages (errors are always shown)")
+    parser.add_argument("--print-prompt", action="store_true",
+                        help="Print the system prompt and user prompt then exit (no LLM call)")
     parser.add_argument("--log-file", type=Path, metavar="FILE",
                         help="Append log output to a file")
     args = parser.parse_args()
@@ -189,6 +191,13 @@ async def main() -> None:
 
     if not articles:
         log("No unread articles found.")
+        return
+
+    if args.print_prompt:
+        print("=== SYSTEM PROMPT ===")
+        print(system_prompt)
+        print("\n=== USER PROMPT ===")
+        print(build_prompt(articles, hours))
         return
 
     log(f"Summarizing with {model}...")
