@@ -91,13 +91,15 @@ LM Studio lets you run models on your own machine with no API key or usage costs
 
 1. Download and open LM Studio, load a model (Mistral, Llama, Gemma, etc.)
 2. Start the local server: **Local Server** tab → **Start Server**
-3. Copy the model identifier shown in the UI (e.g. `mistral-7b-instruct-v0.3`)
+3. Copy the [model identifier] shown in the UI (e.g. `google/gemma-4-12b-qat`)
+4. Invoke `rss-digest` with the `--model` parameter, but prefixing the model
+   identifier with `openai/`, e.g. `openai/google/gemma-4-12b-qat`.
 
 ```bash
 export OPENAI_BASE_URL=http://localhost:1234/v1
 export OPENAI_API_KEY=lm-studio
 
-rss-digest --model openai/mistral-7b-instruct-v0.3
+rss-digest --model openai/google/openai/google/gemma-4-12b-qat
 ```
 
 The `OPENAI_API_KEY` value is ignored by LM Studio but required by the LiteLLM library — set it to anything. The model name after `openai/` must match the identifier shown in LM Studio's server tab.
