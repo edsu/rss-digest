@@ -1,6 +1,6 @@
 [project]
 name = "rss-digest"
-version = "0.0.4"
+version = "0.0.5"
 description = "Generate an RSS digest from any GReader-compatible feed reader using an LLM"
 readme = "README.md"
 license = "MIT"

@@ -140,8 +140,23 @@ Do not use bullet points or headings. Every article title must be a markdown lin
 
 The user message sent to the model is always a structured list of articles grouped by feed, so your prompt only needs to describe the desired output format.
 
-Please send prompts you like as PRs and I will add them to a prompt example
-directory!
+The [`prompts/`](prompts/) directory contains example prompts contributed by users. To try one:
+
+```bash
+rss-digest --system-prompt-file prompts/demote-ai-news.txt
+```
+
+Please send prompts you like as PRs and I will add them to the `prompts/` directory!
+
+### Inspecting the prompt
+
+To see the exact system prompt and user message that would be sent to the model — without making any LLM call — use `--print-prompt`:
+
+```bash
+rss-digest --print-prompt
+```
+
+This is useful for iterating on a custom prompt, checking which articles were fetched, or piping the content to another tool.
 
 ## Example output
 
