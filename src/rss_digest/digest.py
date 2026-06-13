@@ -23,6 +23,7 @@ from datetime import datetime
 from pathlib import Path
 
 import litellm
+from markdown import markdown
 
 from rss_digest.greader import Config, GReaderClient
 
@@ -101,8 +102,7 @@ def summarize(articles: list[dict], hours: int, model: str, system_prompt: str =
 
 
 def to_html(md_text: str, title: str) -> str:
-    import markdown as md_lib
-    body = md_lib.markdown(md_text)
+    body = markdown(md_text, extensions=["footnotes"])
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
