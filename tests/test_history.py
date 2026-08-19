@@ -65,7 +65,9 @@ def test_keeps_a_line_that_merely_mentions_articles():
 
 
 def test_html_links_become_markdown():
-    raw = '<html><body><p>See <a href="https://e.com/1">The Story</a>.</p></body></html>'
+    raw = (
+        '<html><body><p>See <a href="https://e.com/1">The Story</a>.</p></body></html>'
+    )
     assert "[The Story](https://e.com/1)" in digest_to_text(raw)
 
 
@@ -91,7 +93,9 @@ def test_html_style_block_is_dropped():
 
 
 def test_html_entities_are_unescaped():
-    raw = "<html><body><p>Tom &amp; Jerry &mdash; a &quot;classic&quot;</p></body></html>"
+    raw = (
+        "<html><body><p>Tom &amp; Jerry &mdash; a &quot;classic&quot;</p></body></html>"
+    )
     out = digest_to_text(raw)
     assert "Tom & Jerry" in out
     assert "&amp;" not in out
@@ -132,7 +136,10 @@ def test_date_from_prefixed_filename(tmp_path):
 
 
 def test_date_from_anywhere_in_filename(tmp_path):
-    assert digest_date(write(tmp_path / "morning-2026-08-17-final.md", "x")) == "2026-08-17"
+    assert (
+        digest_date(write(tmp_path / "morning-2026-08-17-final.md", "x"))
+        == "2026-08-17"
+    )
 
 
 def test_filename_date_wins_over_file_date(tmp_path):
@@ -169,7 +176,10 @@ def test_no_history_when_dir_empty(tmp_path):
 def test_returns_newest_n_in_chronological_order(tmp_path):
     for d in ["2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13"]:
         write(tmp_path / f"{d}.md", f"body {d}")
-    assert [d for d, _ in load_history(tmp_path, 2, TODAY)] == ["2026-08-12", "2026-08-13"]
+    assert [d for d, _ in load_history(tmp_path, 2, TODAY)] == [
+        "2026-08-12",
+        "2026-08-13",
+    ]
 
 
 def test_count_larger_than_archive_returns_all(tmp_path):
@@ -224,10 +234,18 @@ def test_history_content_is_converted(tmp_path):
 
 
 ARTICLES = [
-    {"feed_name": "Feed", "title": "Today Story", "url": "https://n.com/1", "summary": "s"},
+    {
+        "feed_name": "Feed",
+        "title": "Today Story",
+        "url": "https://n.com/1",
+        "summary": "s",
+    },
 ]
 
-HISTORY = [("2026-08-16", "## Old Theme\n\nOld body."), ("2026-08-17", "## Newer\n\nNewer body.")]
+HISTORY = [
+    ("2026-08-16", "## Old Theme\n\nOld body."),
+    ("2026-08-17", "## Newer\n\nNewer body."),
+]
 
 
 def test_prompt_without_history_is_unchanged():

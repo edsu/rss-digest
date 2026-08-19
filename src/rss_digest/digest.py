@@ -76,7 +76,9 @@ def strip_html(s: str | None) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
-async def fetch_articles(config: Config, hours: int, mark_read: bool = False) -> list[dict]:
+async def fetch_articles(
+    config: Config, hours: int, mark_read: bool = False
+) -> list[dict]:
     client = GReaderClient(config)
     cutoff = int(time.time()) - hours * 3600
     try:
@@ -114,10 +116,18 @@ def digest_to_text(raw: str) -> str:
     if "<html" in raw[:200].lower():
         body = re.search(r"<body[^>]*>(.*)</body>", raw, re.S)
         s = body.group(1) if body else raw
-        s = re.sub(r"""<a\s[^>]*href=["']([^"']+)["'][^>]*>(.*?)</a>""",
-                   r"[\2](\1)", s, flags=re.S)
-        s = re.sub(r"<h([1-6])[^>]*>(.*?)</h\1>",
-                   lambda m: f"\n{'#' * int(m.group(1))} {m.group(2)}\n", s, flags=re.S)
+        s = re.sub(
+            r"""<a\s[^>]*href=["']([^"']+)["'][^>]*>(.*?)</a>""",
+            r"[\2](\1)",
+            s,
+            flags=re.S,
+        )
+        s = re.sub(
+            r"<h([1-6])[^>]*>(.*?)</h\1>",
+            lambda m: f"\n{'#' * int(m.group(1))} {m.group(2)}\n",
+            s,
+            flags=re.S,
+        )
         s = re.sub(r"<li[^>]*>", "- ", s)
         s = re.sub(r"</(?:p|li|div|blockquote|ul|ol)>", "\n", s)
         s = html.unescape(re.sub(r"<[^>]+>", "", s))
@@ -209,7 +219,6 @@ def summarize(
     return response.choices[0].message.content
 
 
-
 def to_html(md_text: str, title: str) -> str:
     body = markdown(md_text, extensions=["footnotes"])
     return f"""<!DOCTYPE html>
@@ -231,65 +240,129 @@ def to_html(md_text: str, title: str) -> str:
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Generate an RSS digest")
-    parser.add_argument("--html", action="store_true", help="Output HTML instead of Markdown")
-    parser.add_argument("--hours", type=int, default=DEFAULT_HOURS, metavar="N",
-                        help=f"Hours of articles to include (default: {DEFAULT_HOURS})")
-    parser.add_argument("--model", default=DEFAULT_MODEL, metavar="MODEL",
-                        help=f"LiteLLM model string (default: {DEFAULT_MODEL})")
-    parser.add_argument("--url", default=os.environ.get("GREADER_URL"), metavar="URL",
-                        help="GReader service base URL (default: $GREADER_URL)")
-    parser.add_argument("--username", default=os.environ.get("GREADER_USERNAME"), metavar="USER",
-                        help="GReader username (default: $GREADER_USERNAME)")
-    parser.add_argument("--password", default=os.environ.get("GREADER_PASSWORD"), metavar="PASS",
-                        help="GReader password (default: $GREADER_PASSWORD)")
-    parser.add_argument("--api-path", default=os.environ.get("GREADER_API_PATH", DEFAULT_API_PATH),
-                        metavar="PATH", help=f"GReader API path (default: {DEFAULT_API_PATH})")
-    parser.add_argument("--system-prompt-file", type=Path, metavar="FILE",
-                        help="File containing a replacement system prompt")
-    parser.add_argument("--archive-dir", type=Path, metavar="DIR",
-                        help="Directory of past digests to send as context, so the LLM "
-                             "can follow ongoing threads and avoid repeating itself. "
-                             "Reads files named YYYY-MM-DD.md/.html or "
-                             "digest-YYYY-MM-DD.md; never writes to it")
-    parser.add_argument("--history", type=int, default=None, metavar="N",
-                        help=f"How many digests from --archive-dir to send "
-                             f"(default: {DEFAULT_HISTORY})")
-    parser.add_argument("--mark-read", action="store_true",
-                        help="Mark fetched articles as read in the feed reader")
-    parser.add_argument("--output", type=Path, metavar="PATH",
-                        help="Output file path (default: ./digest-YYYY-MM-DD.md/html)")
-    parser.add_argument("--quiet", action="store_true",
-                        help="Suppress progress messages (errors are always shown)")
-    parser.add_argument("--print-prompt", action="store_true",
-                        help="Print the system prompt and user prompt then exit (no LLM call)")
-    parser.add_argument("--log-file", type=Path, metavar="FILE",
-                        help="Append log output to a file")
+    parser.add_argument(
+        "--html", action="store_true", help="Output HTML instead of Markdown"
+    )
+    parser.add_argument(
+        "--hours",
+        type=int,
+        default=DEFAULT_HOURS,
+        metavar="N",
+        help=f"Hours of articles to include (default: {DEFAULT_HOURS})",
+    )
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_MODEL,
+        metavar="MODEL",
+        help=f"LiteLLM model string (default: {DEFAULT_MODEL})",
+    )
+    parser.add_argument(
+        "--url",
+        default=os.environ.get("GREADER_URL"),
+        metavar="URL",
+        help="GReader service base URL (default: $GREADER_URL)",
+    )
+    parser.add_argument(
+        "--username",
+        default=os.environ.get("GREADER_USERNAME"),
+        metavar="USER",
+        help="GReader username (default: $GREADER_USERNAME)",
+    )
+    parser.add_argument(
+        "--password",
+        default=os.environ.get("GREADER_PASSWORD"),
+        metavar="PASS",
+        help="GReader password (default: $GREADER_PASSWORD)",
+    )
+    parser.add_argument(
+        "--api-path",
+        default=os.environ.get("GREADER_API_PATH", DEFAULT_API_PATH),
+        metavar="PATH",
+        help=f"GReader API path (default: {DEFAULT_API_PATH})",
+    )
+    parser.add_argument(
+        "--system-prompt-file",
+        type=Path,
+        metavar="FILE",
+        help="File containing a replacement system prompt",
+    )
+    parser.add_argument(
+        "--archive-dir",
+        type=Path,
+        metavar="DIR",
+        help="Directory of past digests to send as context, so the LLM "
+        "can follow ongoing threads and avoid repeating itself. "
+        "Reads files named YYYY-MM-DD.md/.html or "
+        "digest-YYYY-MM-DD.md; never writes to it",
+    )
+    parser.add_argument(
+        "--history",
+        type=int,
+        default=None,
+        metavar="N",
+        help=f"How many digests from --archive-dir to send "
+        f"(default: {DEFAULT_HISTORY})",
+    )
+    parser.add_argument(
+        "--mark-read",
+        action="store_true",
+        help="Mark fetched articles as read in the feed reader",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        metavar="PATH",
+        help="Output file path (default: ./digest-YYYY-MM-DD.md/html)",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress progress messages (errors are always shown)",
+    )
+    parser.add_argument(
+        "--print-prompt",
+        action="store_true",
+        help="Print the system prompt and user prompt then exit (no LLM call)",
+    )
+    parser.add_argument(
+        "--log-file", type=Path, metavar="FILE", help="Append log output to a file"
+    )
     args = parser.parse_args()
 
     if args.log_file:
-        logging.basicConfig(filename=args.log_file, level=logging.WARNING,
-                            format="%(asctime)s %(name)s %(levelname)s %(message)s")
+        logging.basicConfig(
+            filename=args.log_file,
+            level=logging.WARNING,
+            format="%(asctime)s %(name)s %(levelname)s %(message)s",
+        )
 
-    missing = [name for name, val in [
-        ("--url / $GREADER_URL", args.url),
-        ("--username / $GREADER_USERNAME", args.username),
-        ("--password / $GREADER_PASSWORD", args.password),
-    ] if not val]
+    missing = [
+        name
+        for name, val in [
+            ("--url / $GREADER_URL", args.url),
+            ("--username / $GREADER_USERNAME", args.username),
+            ("--password / $GREADER_PASSWORD", args.password),
+        ]
+        if not val
+    ]
     if missing:
         for m in missing:
             print(f"error: missing required value: {m}", file=sys.stderr)
         sys.exit(1)
 
     if args.history is not None and args.history > 0 and not args.archive_dir:
-        print("error: --history needs --archive-dir DIR to read digests from",
-              file=sys.stderr)
+        print(
+            "error: --history needs --archive-dir DIR to read digests from",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # An explicit --archive-dir asserts the directory exists; a typo there would
     # otherwise just silently produce no history.
     if args.archive_dir and not args.archive_dir.is_dir():
-        print(f"error: --archive-dir not a directory: {args.archive_dir}",
-              file=sys.stderr)
+        print(
+            f"error: --archive-dir not a directory: {args.archive_dir}", file=sys.stderr
+        )
         sys.exit(1)
 
     config = Config(
@@ -340,8 +413,13 @@ async def main() -> None:
         digest = summarize(articles, hours, model, system_prompt, history)
     except Exception as e:
         msg = str(e).lower()
-        if any(w in msg for w in ("credit", "billing", "quota", "insufficient", "payment")):
-            print("error: out of API credits — check your account at console.anthropic.com", file=sys.stderr)
+        if any(
+            w in msg for w in ("credit", "billing", "quota", "insufficient", "payment")
+        ):
+            print(
+                "error: out of API credits — check your account at console.anthropic.com",
+                file=sys.stderr,
+            )
         else:
             print(f"error: LLM call failed: {e}", file=sys.stderr)
         sys.exit(1)

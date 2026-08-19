@@ -41,7 +41,9 @@ async def test_authenticate_success(client):
     mock_response.text = "SID=abc123\nLSID=def456\nAuth=ghi789"
     mock_response.raise_for_status = MagicMock()
 
-    with patch.object(client._client, "post", new_callable=AsyncMock, return_value=mock_response):
+    with patch.object(
+        client._client, "post", new_callable=AsyncMock, return_value=mock_response
+    ):
         token = await client.authenticate()
 
     assert token == "ghi789"
@@ -54,7 +56,9 @@ async def test_authenticate_no_auth_token(client):
     mock_response.raise_for_status = MagicMock()
 
     with (
-        patch.object(client._client, "post", new_callable=AsyncMock, return_value=mock_response),
+        patch.object(
+            client._client, "post", new_callable=AsyncMock, return_value=mock_response
+        ),
         pytest.raises(AuthenticationError, match="No Auth token"),
     ):
         await client.authenticate()
@@ -64,11 +68,15 @@ async def test_authenticate_http_error(client):
     mock_response = MagicMock()
     mock_response.status_code = 403
     mock_response.raise_for_status = MagicMock(
-        side_effect=httpx.HTTPStatusError("Forbidden", request=MagicMock(), response=mock_response)
+        side_effect=httpx.HTTPStatusError(
+            "Forbidden", request=MagicMock(), response=mock_response
+        )
     )
 
     with (
-        patch.object(client._client, "post", new_callable=AsyncMock, return_value=mock_response),
+        patch.object(
+            client._client, "post", new_callable=AsyncMock, return_value=mock_response
+        ),
         pytest.raises(AuthenticationError, match="403"),
     ):
         await client.authenticate()
@@ -94,7 +102,12 @@ def _mock_response(items, continuation=None):
 
 async def test_get_articles(client):
     client._auth_token = "tok"
-    with patch.object(client._client, "get", new_callable=AsyncMock, return_value=_mock_response([SAMPLE_ITEM])):
+    with patch.object(
+        client._client,
+        "get",
+        new_callable=AsyncMock,
+        return_value=_mock_response([SAMPLE_ITEM]),
+    ):
         articles = await client.get_articles(limit=10)
 
     assert len(articles) == 1
@@ -105,7 +118,9 @@ async def test_get_articles(client):
 
 async def test_get_articles_empty(client):
     client._auth_token = "tok"
-    with patch.object(client._client, "get", new_callable=AsyncMock, return_value=_mock_response([])):
+    with patch.object(
+        client._client, "get", new_callable=AsyncMock, return_value=_mock_response([])
+    ):
         articles = await client.get_articles()
 
     assert articles == []
@@ -116,10 +131,12 @@ async def test_get_articles_follows_continuation(client):
     page1 = {**SAMPLE_ITEM, "id": "tag:google.com,2005:reader/item/1"}
     page2 = {**SAMPLE_ITEM, "id": "tag:google.com,2005:reader/item/2"}
 
-    mock_get = AsyncMock(side_effect=[
-        _mock_response([page1], continuation="next-page"),
-        _mock_response([page2]),
-    ])
+    mock_get = AsyncMock(
+        side_effect=[
+            _mock_response([page1], continuation="next-page"),
+            _mock_response([page2]),
+        ]
+    )
     with patch.object(client._client, "get", mock_get):
         articles = await client.get_articles(limit=10)
 
@@ -129,7 +146,9 @@ async def test_get_articles_follows_continuation(client):
 
 async def test_get_articles_stops_at_limit(client):
     client._auth_token = "tok"
-    items = [{**SAMPLE_ITEM, "id": f"tag:google.com,2005:reader/item/{i}"} for i in range(5)]
+    items = [
+        {**SAMPLE_ITEM, "id": f"tag:google.com,2005:reader/item/{i}"} for i in range(5)
+    ]
     mock_get = AsyncMock(return_value=_mock_response(items, continuation="more"))
     with patch.object(client._client, "get", mock_get):
         articles = await client.get_articles(limit=3)
@@ -181,10 +200,17 @@ class TestParseArticle:
 
 class TestExtractArticleId:
     def test_decimal(self):
-        assert GReaderClient._extract_article_id("tag:google.com,2005:reader/item/1234567890") == 1234567890
+        assert (
+            GReaderClient._extract_article_id(
+                "tag:google.com,2005:reader/item/1234567890"
+            )
+            == 1234567890
+        )
 
     def test_hex(self):
-        result = GReaderClient._extract_article_id("tag:google.com,2005:reader/item/00000186a7b3c4d5")
+        result = GReaderClient._extract_article_id(
+            "tag:google.com,2005:reader/item/00000186a7b3c4d5"
+        )
         assert result == 0x00000186A7B3C4D5
 
     def test_unknown_format(self):
@@ -196,8 +222,16 @@ class TestExtractArticleId:
 
 
 def test_article_to_dict():
-    a = Article(id=1, title="T", summary="S", url="http://x.com", published=0,
-                feed_name="F", is_read=False, is_starred=True)
+    a = Article(
+        id=1,
+        title="T",
+        summary="S",
+        url="http://x.com",
+        published=0,
+        feed_name="F",
+        is_read=False,
+        is_starred=True,
+    )
     d = a.to_dict()
     assert d["title"] == "T"
     assert d["is_starred"] is True
@@ -211,7 +245,9 @@ async def test_mark_as_read(client):
     mock_response = MagicMock()
     mock_response.raise_for_status = MagicMock()
 
-    with patch.object(client._client, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
+    with patch.object(
+        client._client, "post", new_callable=AsyncMock, return_value=mock_response
+    ) as mock_post:
         await client.mark_as_read([1, 2, 3])
 
     assert mock_post.call_count == 1
@@ -230,7 +266,9 @@ async def test_mark_as_read_batches(client):
     mock_response = MagicMock()
     mock_response.raise_for_status = MagicMock()
 
-    with patch.object(client._client, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
+    with patch.object(
+        client._client, "post", new_callable=AsyncMock, return_value=mock_response
+    ) as mock_post:
         await client.mark_as_read(list(range(150)))
 
     assert mock_post.call_count == 2

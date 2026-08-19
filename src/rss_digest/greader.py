@@ -72,7 +72,9 @@ class GReaderClient:
         api_path = config.api_path.rstrip("/")
         self.api_url = f"{base_url}{api_path}"
         self._auth_token: str | None = None
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=30.0, follow_redirects=True)
+        self._client = httpx.AsyncClient(
+            base_url=base_url, timeout=30.0, follow_redirects=True
+        )
 
     async def authenticate(self) -> str:
         auth_url = f"{self.api_url}/accounts/ClientLogin"
@@ -91,7 +93,9 @@ class GReaderClient:
                     return self._auth_token
             raise AuthenticationError("No Auth token found in authentication response")
         except httpx.HTTPStatusError as e:
-            raise AuthenticationError(f"Authentication failed: {e.response.status_code}") from e
+            raise AuthenticationError(
+                f"Authentication failed: {e.response.status_code}"
+            ) from e
 
     async def _ensure_authenticated(self) -> None:
         if not self._auth_token:
@@ -110,7 +114,9 @@ class GReaderClient:
         since_timestamp: int | None = None,
     ) -> list[Article]:
         await self._ensure_authenticated()
-        stream_id = f"feed/{feed_id}" if feed_id else "user/-/state/com.google/reading-list"
+        stream_id = (
+            f"feed/{feed_id}" if feed_id else "user/-/state/com.google/reading-list"
+        )
         url = f"{self.api_url}/reader/api/0/stream/contents/{stream_id}"
 
         articles: list[Article] = []
@@ -125,7 +131,9 @@ class GReaderClient:
             if continuation:
                 params["c"] = continuation
 
-            response = await self._client.get(url, headers=self._auth_headers(), params=params)
+            response = await self._client.get(
+                url, headers=self._auth_headers(), params=params
+            )
             response.raise_for_status()
 
             data = response.json()
@@ -184,8 +192,10 @@ class GReaderClient:
         url = f"{self.api_url}/reader/api/0/edit-tag"
         # Send in batches to avoid overly long requests
         for i in range(0, len(article_ids), 100):
-            batch = article_ids[i:i + 100]
-            data = [("i", f"tag:google.com,2005:reader/item/{aid:016x}") for aid in batch]
+            batch = article_ids[i : i + 100]
+            data = [
+                ("i", f"tag:google.com,2005:reader/item/{aid:016x}") for aid in batch
+            ]
             data.append(("a", "user/-/state/com.google/read"))
             # A list of pairs, not a dict: the "i" key repeats once per article, and
             # a Mapping would keep only the last one. httpx form-encodes this fine;

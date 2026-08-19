@@ -30,9 +30,24 @@ def test_strip_html_empty():
 
 
 ARTICLES = [
-    {"feed_name": "Tech Blog", "title": "New Python Release", "url": "https://a.com/1", "summary": "Python 4 is out"},
-    {"feed_name": "Tech Blog", "title": "AI News", "url": "https://a.com/2", "summary": ""},
-    {"feed_name": "Local News", "title": "Road Closed", "url": "https://b.com/1", "summary": "Main St closed"},
+    {
+        "feed_name": "Tech Blog",
+        "title": "New Python Release",
+        "url": "https://a.com/1",
+        "summary": "Python 4 is out",
+    },
+    {
+        "feed_name": "Tech Blog",
+        "title": "AI News",
+        "url": "https://a.com/2",
+        "summary": "",
+    },
+    {
+        "feed_name": "Local News",
+        "title": "Road Closed",
+        "url": "https://b.com/1",
+        "summary": "Main St closed",
+    },
 ]
 
 
