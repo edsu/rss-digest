@@ -28,7 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v10
+      # Full version: setup-uv publishes no floating major tag (no v10, v9, v8)
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
 
