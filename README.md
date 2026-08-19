@@ -50,9 +50,11 @@ All options can be set on the command line. Credentials fall back to environment
 | `--password PASS` | `GREADER_PASSWORD` | *(required)* |
 | `--api-path PATH` | `GREADER_API_PATH` | `/api/greader.php` |
 | `--hours N` | | `24` |
-| `--model MODEL` | | `anthropic/claude-sonnet-4-6` |
+| `--model MODEL` | | `anthropic/claude-sonnet-5` |
 | `--html` | | off |
 | `--system-prompt-file FILE` | | built-in prompt |
+| `--archive-dir DIR` | | off (no history) |
+| `--history N` | | `3` |
 | `--mark-read` | | off |
 | `--output PATH` | | `./digest-YYYY-MM-DD.md` |
 | `--quiet` | | off |
@@ -69,6 +71,46 @@ rss-digest --model openai/gpt-4o
 rss-digest --url https://freshrss.example.com --username alice --password s3cr3t
 ```
 
+## Continuity between digests
+
+Point `--archive-dir` at a folder of past digests and they're sent along with the
+new articles, inside a `<previous_digests>` block, so the LLM can follow up on
+ongoing stories and avoid re-telling one it already covered — feeds echo each
+other, and the same story often arrives from three sources over two days.
+
+```bash
+# Keep the digests you've read in one folder, then feed them back
+rss-digest --archive-dir ~/Documents/rss-digests
+```
+
+**Nothing is ever written to `--archive-dir`.** You file digests there yourself,
+which is the point: the folder holds only what you actually read, so that's what
+shapes the next digest.
+
+Any `.md` or `.html` file in the folder counts, whatever it's named — so however
+you set `--output`, it works. HTML is converted back to markdown, and the
+generated header, stats line and footer are stripped. Each digest is dated by the
+date in its filename if there is one, otherwise by when the file was created;
+anything dated today is skipped, so running twice in one day won't feed a digest
+to itself.
+
+Without `--archive-dir` there's no history and nothing changes. `--history N`
+tunes how many digests to send (default 3) and requires `--archive-dir`.
+
+There is no separate "context" parameter in a chat completion — the block is just
+text prepended to the user message. Measured on a 151-article day with
+`count_tokens`: 25.5k tokens for the articles and ~3k per digest of history, so
+`--history 3` puts the whole prompt near 35k. History is a real third of the
+prompt at that setting, but a fraction of a cent per run — nothing worth
+compressing.
+
+The trade-off worth watching is anchoring: given yesterday's digest, a model will
+happily reproduce yesterday's section headings and manufacture continuity where
+there is none. The system prompt guards against this explicitly, and that guidance
+is appended to your own prompt too when you use `--system-prompt-file`, so custom
+prompts don't lose it. If a digest still reads like the previous day's, compare
+against a run with `--archive-dir` left off.
+
 ## Choosing a model
 
 `rss-digest` uses [LiteLLM](https://docs.litellm.ai/), so any model it supports works. Set the `--model` flag to a LiteLLM model string and export the corresponding API key.
@@ -76,7 +118,7 @@ rss-digest --url https://freshrss.example.com --username alice --password s3cr3t
 **Anthropic (default)**
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-rss-digest --model anthropic/claude-sonnet-4-6
+rss-digest --model anthropic/claude-sonnet-5
 ```
 
 **OpenAI**
@@ -198,6 +240,16 @@ ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 Crontab env-var lines apply to all jobs below them in the file, so you only need to set them once.
+
+### Using digests you've read as context
+
+Write each morning's digest somewhere you'll see it, and file the ones you read
+into a folder you pass as `--archive-dir`. Continuity then reflects only what you
+actually read, and the job never writes into the folder you curate by hand:
+
+```crontab
+0 6 * * * /Users/yourname/.local/bin/rss-digest --html --quiet --archive-dir /Users/yourname/Documents/rss-digests --output /Users/yourname/Desktop/`date +\%Y-\%m-\%d`.html
+```
 
 ## Compatible readers
 
