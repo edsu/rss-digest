@@ -39,3 +39,7 @@ jobs:
       - run: uv run pytest
 
       - run: uv run ty check
+
+      # --check fails on unformatted files; plain `ruff format` would reformat
+      # them and exit 0, so CI would pass without checking anything
+      - run: uv run ruff format --check

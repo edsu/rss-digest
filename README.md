@@ -256,15 +256,24 @@ actually read, and the job never writes into the folder you curate by hand:
 ## Development
 
 ```bash
-uv sync            # install, including dev dependencies
-uv run pytest      # tests
-uv run ty check    # type checking
+uv sync              # install, including dev dependencies
+uv run pytest        # tests
+uv run ty check      # type checking
+uv run ruff format   # formatting
 ```
 
-CI runs both of those on Python 3.12 and 3.13 for every push to `main` and every
-pull request. `ty` is pinned exactly in `pyproject.toml` because it's pre-1.0 —
-new releases add checks, which can turn CI red without a code change, so bump it
-deliberately rather than letting it float.
+CI runs all three on Python 3.12 and 3.13 for every push to `main` and every
+pull request, with `ruff format --check` so unformatted code fails the build.
+`ty` and `ruff` are unpinned in `pyproject.toml`, but CI installs from `uv.lock`,
+so the version only moves when you run `uv lock` — both are pre-1.0, and a new
+release can add checks or change formatting, so it's better to see that as a
+diff than as a surprise red build.
+
+This project was bulk-reformatted once. To keep that commit out of `git blame`:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
 
 ## Compatible readers
 
