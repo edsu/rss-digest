@@ -6,6 +6,8 @@
 </pre>
 </div>
 
+[![CI](https://github.com/edsu/rss-digest/actions/workflows/ci.yml/badge.svg)](https://github.com/edsu/rss-digest/actions/workflows/ci.yml)
+
 Generates a digest from your self-hosted RSS reader using your choice of LLM. Instead of scrolling through hundreds of unread articles, you get a single readable summary grouped by theme — delivered as a Markdown or HTML file.
 
 ## What you need
@@ -250,6 +252,19 @@ actually read, and the job never writes into the folder you curate by hand:
 ```crontab
 0 6 * * * /Users/yourname/.local/bin/rss-digest --html --quiet --archive-dir /Users/yourname/Documents/rss-digests --output /Users/yourname/Desktop/`date +\%Y-\%m-\%d`.html
 ```
+
+## Development
+
+```bash
+uv sync            # install, including dev dependencies
+uv run pytest      # tests
+uv run ty check    # type checking
+```
+
+CI runs both of those on Python 3.12 and 3.13 for every push to `main` and every
+pull request. `ty` is pinned exactly in `pyproject.toml` because it's pre-1.0 —
+new releases add checks, which can turn CI red without a code change, so bump it
+deliberately rather than letting it float.
 
 ## Compatible readers
 

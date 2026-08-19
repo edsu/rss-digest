@@ -30,6 +30,9 @@ packages = ["src/rss_digest"]
 dev = [
     "pytest",
     "pytest-asyncio",
+    # Pinned exactly: ty is pre-1.0, so new releases add checks and can turn CI
+    # red without a code change. Bump deliberately.
+    "ty==0.0.72",
 ]
 
 [tool.pytest.ini_options]

@@ -70,7 +70,7 @@ shape from today's articles. If nothing connects, ignore them entirely.\
 """
 
 
-def strip_html(s: str) -> str:
+def strip_html(s: str | None) -> str:
     s = re.sub(r"<[^>]+>", "", s or "")
     s = html.unescape(s)
     return re.sub(r"\s+", " ", s).strip()
@@ -87,7 +87,9 @@ async def fetch_articles(config: Config, hours: int, mark_read: bool = False) ->
             if a.published >= cutoff
         ]
         if mark_read and result:
-            await client.mark_as_read([a["id"] for a in result])
+            # int() because these articles are plain dicts, so the id's type is
+            # lost on the way through to_dict()
+            await client.mark_as_read([int(a["id"]) for a in result])
         return result
     finally:
         await client.aclose()

@@ -187,7 +187,14 @@ class GReaderClient:
             batch = article_ids[i:i + 100]
             data = [("i", f"tag:google.com,2005:reader/item/{aid:016x}") for aid in batch]
             data.append(("a", "user/-/state/com.google/read"))
-            response = await self._client.post(url, headers=self._auth_headers(), data=data)
+            # A list of pairs, not a dict: the "i" key repeats once per article, and
+            # a Mapping would keep only the last one. httpx form-encodes this fine;
+            # its annotation is just narrower than what it accepts.
+            response = await self._client.post(
+                url,
+                headers=self._auth_headers(),
+                data=data,  # ty: ignore[invalid-argument-type]
+            )
             response.raise_for_status()
 
     async def aclose(self) -> None:
