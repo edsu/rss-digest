@@ -44,6 +44,15 @@ The digest is written to `~/Desktop/digest-YYYY-MM-DD.md`. Pass `--html` to get 
 
 Settings are passed on the command line. Secrets come from the environment: the GReader password is read only from `GREADER_PASSWORD`, and your LLM provider's API key from its own variable (see [Choosing a model](#choosing-a-model)). The username can be given with `--username` or `GREADER_USERNAME`.
 
+Instead of exporting them, you can put these variables in a `.env` file in the directory you run `rss-digest` from. Variables already set in the environment take precedence over the file.
+
+```bash
+# .env
+GREADER_USERNAME=yourname
+GREADER_PASSWORD=yourpassword
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
 | Option | Env var | Default |
 |--------|---------|---------|
 | `--url URL` | | *(required)* |
@@ -256,6 +265,12 @@ ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 Crontab env-var lines apply to all jobs below them in the file, so you only need to set them once.
+
+To keep the secrets out of your crontab, put them in a `.env` file instead and `cd` to its directory first, since cron starts jobs in your home directory:
+
+```crontab
+0 6 * * * cd /Users/yourname/rss-digest && /Users/yourname/.local/bin/rss-digest --url https://freshrss.example.com --html --quiet --output /Users/yourname/Documents/digest.html
+```
 
 ### Using digests you've read as context
 

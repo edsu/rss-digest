@@ -11,7 +11,8 @@ litellm-supported model string works, e.g.:
 Time window defaults to 24 hours; override with --hours.
 
 Settings come from the command line; only secrets (the GReader username and
-password, and the LLM provider's API key) are read from the environment.
+password, and the LLM provider's API key) are read from the environment,
+which can be filled from a .env file in the current directory.
 """
 
 import argparse
@@ -27,11 +28,11 @@ from datetime import datetime
 from pathlib import Path
 
 import litellm
+from dotenv import load_dotenv
 from markdown import markdown
 
 from rss_digest.greader import Config, GReaderClient
 
-ROOT = Path(__file__).parent.parent.parent  # project root, where .env lives
 DEFAULT_MODEL = "anthropic/claude-sonnet-5"
 DEFAULT_HOURS = 24
 DEFAULT_API_PATH = "/api/greader.php"
@@ -245,6 +246,10 @@ def to_html(md_text: str, title: str) -> str:
 
 
 async def main() -> None:
+    # Before argparse reads $GREADER_USERNAME. Variables already set in the
+    # environment win over the file.
+    load_dotenv(Path(".env"))
+
     parser = argparse.ArgumentParser(description="Generate an RSS digest")
     parser.add_argument(
         "--html", action="store_true", help="Output HTML instead of Markdown"
@@ -374,7 +379,6 @@ async def main() -> None:
         sys.exit(1)
 
     config = Config(
-        _env_file=str(ROOT / ".env"),
         url=args.url,
         username=args.username,
         password=password,

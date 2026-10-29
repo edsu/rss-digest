@@ -10,6 +10,7 @@ dependencies = [
     "litellm",
     "markdown",
     "pydantic-settings",
+    "python-dotenv",
 ]
 
 [project.urls]

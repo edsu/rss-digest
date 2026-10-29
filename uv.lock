@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 
 [[package]]
@@ -1447,6 +1447,7 @@ dependencies = [
     { name = "litellm" },
     { name = "markdown" },
     { name = "pydantic-settings" },
+    { name = "python-dotenv" },
 ]
 
 [package.dev-dependencies]
@@ -1463,6 +1464,7 @@ requires-dist = [
     { name = "litellm" },
     { name = "markdown" },
     { name = "pydantic-settings" },
+    { name = "python-dotenv" },
 ]
 
 [package.metadata.requires-dev]
