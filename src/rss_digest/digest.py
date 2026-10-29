@@ -240,9 +240,10 @@ def to_html(md_text: str, title: str) -> str:
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>
 <style>
-  body {{ max-width: 800px; margin: 2em auto; font-family: sans-serif; line-height: 1.6; }}
+  body {{ max-width: 800px; margin: 2em auto; padding: 0 1em; font-family: sans-serif; line-height: 1.6; overflow-wrap: break-word; }}
   a {{ color: #0066cc; }}
   h3 {{ margin-top: 1.5em; }}
 </style>

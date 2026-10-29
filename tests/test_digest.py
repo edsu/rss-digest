@@ -96,6 +96,7 @@ def test_to_html_structure():
     result = to_html("# Title\n\nSome content.", "My Title")
     assert "<!DOCTYPE html>" in result
     assert "<title>My Title</title>" in result
+    assert 'name="viewport" content="width=device-width' in result
     assert "<h1>Title</h1>" in result
     assert "Some content." in result
 
