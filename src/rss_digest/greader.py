@@ -14,7 +14,6 @@ class Config(BaseSettings):
     url: str = Field(alias="GREADER_URL")
     username: str = Field(alias="GREADER_USERNAME")
     password: SecretStr = Field(alias="GREADER_PASSWORD")
-    api_path: str = Field(default="/api/greader.php", alias="GREADER_API_PATH")
 
     model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
 
@@ -68,12 +67,10 @@ class AuthenticationError(Exception):
 class GReaderClient:
     def __init__(self, config: Config):
         self._config = config
-        base_url = config.url.rstrip("/")
-        api_path = config.api_path.rstrip("/")
-        self.api_url = f"{base_url}{api_path}"
+        self.api_url = config.url.rstrip("/")
         self._auth_token: str | None = None
         self._client = httpx.AsyncClient(
-            base_url=base_url, timeout=30.0, follow_redirects=True
+            base_url=self.api_url, timeout=30.0, follow_redirects=True
         )
 
     async def authenticate(self) -> str:

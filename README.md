@@ -29,48 +29,58 @@ pipx install rss-digest
 ## Quick start
 
 ```bash
-# Set your credentials
-export GREADER_USERNAME=yourname
+# Set your secrets
 export GREADER_PASSWORD=yourpassword
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # Generate a digest of the last 24 hours
-rss-digest --url https://freshrss.example.com
+rss-digest --greader-url https://freshrss.example.com/api/greader.php --greader-username yourname
 ```
 
-The digest is written to `~/Desktop/digest-YYYY-MM-DD.md`. Pass `--html` to get an HTML file instead.
+The digest is written to `digest-YYYY-MM-DD.md` in the current directory. Pass `--html` to get an HTML file instead.
 
 ## Configuration
 
-Settings are passed on the command line. Secrets come from the environment: the GReader password is read only from `GREADER_PASSWORD`, and your LLM provider's API key from its own variable (see [Choosing a model](#choosing-a-model)). The username can be given with `--username` or `GREADER_USERNAME`.
+Settings are passed on the command line, grouped by the service they configure. Only secrets come from the environment: the GReader password from `GREADER_PASSWORD`, and your LLM provider's API key from its own variable (see [Choosing a model](#choosing-a-model)).
 
-Instead of exporting them, you can put these variables in a `.env` file in the directory you run `rss-digest` from. Variables already set in the environment take precedence over the file.
+Instead of exporting them, you can put the secrets in a `.env` file in the directory you run `rss-digest` from. Variables already set in the environment take precedence over the file.
 
 ```bash
 # .env
-GREADER_USERNAME=yourname
 GREADER_PASSWORD=yourpassword
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-| Option | Env var | Default |
-|--------|---------|---------|
-| `--url URL` | | *(required)* |
-| `--username USER` | `GREADER_USERNAME` | *(required)* |
-| `--api-path PATH` | | `/api/greader.php` |
-| `--hours N` | | `24` |
-| `--model MODEL` | | `anthropic/claude-sonnet-5` |
-| `--api-base URL` | | the provider's endpoint |
-| `--html` | | off |
-| `--system-prompt-file FILE` | | built-in prompt |
-| `--archive-dir DIR` | | off (no history) |
-| `--history N` | | `3` |
-| `--mark-read` | | off |
-| `--output PATH` | | `./digest-YYYY-MM-DD.md` |
-| `--quiet` | | off |
-| `--log-file FILE` | | off |
+**Feed reader (GReader API)**
 
-The examples below leave out `--url` to keep them short; every real run needs it.
+| Option | Default |
+|--------|---------|
+| `--greader-url URL` | *(required)* the reader's GReader API endpoint (see [Compatible readers](#compatible-readers)) |
+| `--greader-username USER` | *(required)* |
+| `--mark-read` | off |
+
+**LLM**
+
+| Option | Default |
+|--------|---------|
+| `--model MODEL` | `anthropic/claude-sonnet-5` |
+| `--model-url URL` | the provider's endpoint |
+| `--prompt-file FILE` | built-in prompt |
+| `--print-prompt` | off ([print the prompt and exit](#inspecting-the-prompt)) |
+
+**Digest**
+
+| Option | Default |
+|--------|---------|
+| `--hours N` | `24` |
+| `--archive-dir DIR` | off (no history) |
+| `--history N` | `3` |
+| `--html` | off |
+| `--output PATH` | `./digest-YYYY-MM-DD.md` |
+| `--quiet` | off |
+| `--log-file FILE` | off |
+
+The examples below leave out `--greader-url` and `--greader-username` to keep them short; every real run needs both.
 
 ```bash
 # Last 48 hours, HTML output
@@ -116,13 +126,13 @@ compressing.
 The trade-off worth watching is anchoring: given yesterday's digest, a model will
 happily reproduce yesterday's section headings and manufacture continuity where
 there is none. The system prompt guards against this explicitly, and that guidance
-is appended to your own prompt too when you use `--system-prompt-file`, so custom
+is appended to your own prompt too when you use `--prompt-file`, so custom
 prompts don't lose it. If a digest still reads like the previous day's, compare
 against a run with `--archive-dir` left off.
 
 ## Choosing a model
 
-`rss-digest` uses [LiteLLM](https://docs.litellm.ai/), so any model it supports works. Set the `--model` flag to a LiteLLM model string and export the corresponding API key. To use an OpenAI-compatible API or a LiteLLM gateway, point `--api-base` at it.
+`rss-digest` uses [LiteLLM](https://docs.litellm.ai/), so any model it supports works. Set the `--model` flag to a LiteLLM model string and export the corresponding API key. To use an OpenAI-compatible API or a LiteLLM gateway, point `--model-url` at it.
 
 **Anthropic (default)**
 ```bash
@@ -149,7 +159,7 @@ LM Studio lets you run models on your own machine with no API key or usage costs
 ```bash
 export OPENAI_API_KEY=lm-studio
 
-rss-digest --api-base http://localhost:1234/v1 --model openai/google/gemma-4-12b-qat
+rss-digest --model-url http://localhost:1234/v1 --model openai/google/gemma-4-12b-qat
 ```
 
 The `OPENAI_API_KEY` value is ignored by LM Studio but required by the LiteLLM library — set it to anything. The model name after `openai/` must match the identifier shown in LM Studio's server tab.
@@ -161,7 +171,7 @@ Hosted gateways built on [LiteLLM](https://docs.litellm.ai/docs/simple_proxy), s
 ```bash
 export LITELLM_PROXY_API_KEY=sk-...
 
-rss-digest --api-base https://gateway.inference.coop --model litellm_proxy/MODEL_NAME
+rss-digest --model-url https://gateway.inference.coop --model litellm_proxy/MODEL_NAME
 ```
 
 To list the model names the gateway offers:
@@ -192,10 +202,10 @@ Format rules:
 Every article title you mention must be an inline markdown link. Be concise.
 ```
 
-To use your own prompt, write it to a text file and pass it with `--system-prompt-file`:
+To use your own prompt, write it to a text file and pass it with `--prompt-file`:
 
 ```bash
-rss-digest --system-prompt-file my-prompt.txt
+rss-digest --prompt-file my-prompt.txt
 ```
 
 Example prompt that keeps things very short:
@@ -207,14 +217,6 @@ Do not use bullet points or headings. Every article title must be a markdown lin
 ```
 
 The user message sent to the model is always a structured list of articles grouped by feed, so your prompt only needs to describe the desired output format.
-
-The [`prompts/`](prompts/) directory contains example prompts contributed by users. To try one:
-
-```bash
-rss-digest --system-prompt-file prompts/demote-ai-news.txt
-```
-
-Please send prompts you like as PRs and I will add them to the `prompts/` directory!
 
 ### Inspecting the prompt
 
@@ -246,30 +248,27 @@ NASA [announced the all-male Artemis III crew](https://www.nytimes.com/2026/06/0
 
 ## Running on a schedule
 
-To get a fresh digest every morning, add a crontab entry. Because cron runs with a minimal environment, use the full path to the binary and set credentials directly in the crontab.
+To get a fresh digest every morning, add a crontab entry. Cron runs jobs with a minimal environment, starting in your home directory, so use the full path to the binary and give it its secrets explicitly.
 
 ```bash
 # find the full path first
 which rss-digest
 ```
 
-Then open your crontab with `crontab -e` and add:
+The simplest way to supply the secrets is a `.env` file (see [Configuration](#configuration)) in a directory of your choice, which the job `cd`s into first. Open your crontab with `crontab -e` and add:
 
 ```crontab
-GREADER_USERNAME=yourname
+# Run at 6am every day, write an HTML digest to a specific folder
+0 6 * * * cd /Users/yourname/rss-digest && /Users/yourname/.local/bin/rss-digest --greader-url https://freshrss.example.com/api/greader.php --greader-username yourname --html --quiet --log-file /tmp/rss-digest.log --output /Users/yourname/Documents/digest.html
+```
+
+Alternatively, set the secrets in the crontab itself. Crontab env-var lines apply to every job below them in the file, including unrelated ones, which is one reason to prefer `.env`:
+
+```crontab
 GREADER_PASSWORD=yourpassword
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Run at 6am every day, write an HTML digest to a specific folder
-0 6 * * * /Users/yourname/.local/bin/rss-digest --url https://freshrss.example.com --html --quiet --log-file /tmp/rss-digest.log --output /Users/yourname/Documents/digest.html
-```
-
-Crontab env-var lines apply to all jobs below them in the file, so you only need to set them once.
-
-To keep the secrets out of your crontab, put them in a `.env` file instead and `cd` to its directory first, since cron starts jobs in your home directory:
-
-```crontab
-0 6 * * * cd /Users/yourname/rss-digest && /Users/yourname/.local/bin/rss-digest --url https://freshrss.example.com --html --quiet --output /Users/yourname/Documents/digest.html
+0 6 * * * /Users/yourname/.local/bin/rss-digest --greader-url https://freshrss.example.com/api/greader.php --greader-username yourname --html --quiet --log-file /tmp/rss-digest.log --output /Users/yourname/Documents/digest.html
 ```
 
 ### Using digests you've read as context
@@ -279,7 +278,7 @@ into a folder you pass as `--archive-dir`. Continuity then reflects only what yo
 actually read, and the job never writes into the folder you curate by hand:
 
 ```crontab
-0 6 * * * /Users/yourname/.local/bin/rss-digest --url https://freshrss.example.com --html --quiet --archive-dir /Users/yourname/Documents/rss-digests --output /Users/yourname/Desktop/`date +\%Y-\%m-\%d`.html
+0 6 * * * cd /Users/yourname/rss-digest && /Users/yourname/.local/bin/rss-digest --greader-url https://freshrss.example.com/api/greader.php --greader-username yourname --html --quiet --archive-dir /Users/yourname/Documents/rss-digests --output /Users/yourname/Desktop/`date +\%Y-\%m-\%d`.html
 ```
 
 ## Development
@@ -308,11 +307,11 @@ git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 Any RSS reader that implements the GReader API should work:
 
-| Reader | Notes |
-|--------|-------|
-| [FreshRSS](https://freshrss.org) | Enable the GReader API in Settings → Authentication |
-| [Miniflux](https://miniflux.app) | Enable Google Reader API in Settings |
-| [Tiny Tiny RSS](https://tt-rss.org) | Requires the [News+/GReader plugin](https://github.com/hrk/tt-rss-newsplus-plugin) |
-| [The Old Reader](https://theoldreader.com) | Hosted service with GReader-compatible API |
+| Reader | `--greader-url` | Notes |
+|--------|-----------------|-------|
+| [FreshRSS](https://freshrss.org) | `https://freshrss.example.com/api/greader.php` | Enable the GReader API in Settings → Authentication |
+| [Miniflux](https://miniflux.app) | `https://miniflux.example.com` | Enable Google Reader API in Settings |
+| [Tiny Tiny RSS](https://tt-rss.org) | see the plugin's documentation | Requires the [News+/GReader plugin](https://github.com/hrk/tt-rss-newsplus-plugin) |
+| [The Old Reader](https://theoldreader.com) | `https://theoldreader.com` | Hosted service with GReader-compatible API |
 
-The default `--api-path` (`/api/greader.php`) is correct for FreshRSS. Other readers may use a different path — check their documentation.
+`--greader-url` is the address that the GReader API paths (`/accounts/ClientLogin`, `/reader/api/0/...`) hang off. If your reader's documentation gives a "Google Reader API" or "GReader API" URL, use that.

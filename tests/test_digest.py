@@ -1,6 +1,11 @@
 """Tests for digest utility functions."""
 
-from rss_digest.digest import build_prompt, strip_html, to_html
+from types import SimpleNamespace
+
+import pytest
+
+from rss_digest import digest as digest_mod
+from rss_digest.digest import build_prompt, strip_html, summarize, to_html
 
 
 # --- strip_html ---
@@ -98,3 +103,32 @@ def test_to_html_structure():
 def test_to_html_links():
     result = to_html("[Click here](https://example.com)", "Test")
     assert 'href="https://example.com"' in result
+
+
+# --- summarize ---
+
+
+def stub_completion(monkeypatch, content, finish_reason="stop"):
+    response = SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(content=content), finish_reason=finish_reason
+            )
+        ],
+        usage=SimpleNamespace(completion_tokens=16000),
+    )
+    monkeypatch.setattr(digest_mod.litellm, "completion", lambda **kw: response)
+
+
+def test_summarize_returns_content(monkeypatch):
+    stub_completion(monkeypatch, "### News")
+    assert summarize([], 24, "m") == "### News"
+
+
+@pytest.mark.parametrize("content", [None, "", "  \n"])
+def test_summarize_rejects_empty_reply(monkeypatch, content):
+    """A reasoning model that runs out of tokens returns no text; that must
+    fail loudly rather than write an empty digest."""
+    stub_completion(monkeypatch, content, finish_reason="length")
+    with pytest.raises(RuntimeError, match="finish_reason=length"):
+        summarize([], 24, "m")

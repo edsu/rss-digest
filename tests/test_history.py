@@ -315,7 +315,7 @@ def test_guidance_omitted_when_no_history(monkeypatch):
 
 
 def test_custom_prompt_keeps_guidance(monkeypatch):
-    """A --system-prompt-file replaces SYSTEM_PROMPT, but must not lose the
+    """A --prompt-file replaces SYSTEM_PROMPT, but must not lose the
     history rules — otherwise custom prompts silently anchor on old digests."""
     sent = capture(monkeypatch)
     summarize(ARTICLES, 24, "m", "Totally custom prompt.", HISTORY)

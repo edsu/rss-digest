@@ -5,14 +5,14 @@ Model is selected with --model (default: anthropic/claude-sonnet-5). Any
 litellm-supported model string works, e.g.:
   anthropic/claude-sonnet-5     (needs ANTHROPIC_API_KEY)
   openai/gpt-4o                 (needs OPENAI_API_KEY)
-  openai/mistral-7b-instruct    (LM Studio: --api-base http://localhost:1234/v1)
-  litellm_proxy/some-model      (LiteLLM gateway: --api-base URL, LITELLM_PROXY_API_KEY)
+  openai/mistral-7b-instruct    (LM Studio: --model-url http://localhost:1234/v1)
+  litellm_proxy/some-model      (LiteLLM gateway: --model-url URL, LITELLM_PROXY_API_KEY)
 
 Time window defaults to 24 hours; override with --hours.
 
-Settings come from the command line; only secrets (the GReader username and
-password, and the LLM provider's API key) are read from the environment,
-which can be filled from a .env file in the current directory.
+Settings come from the command line; only secrets (GREADER_PASSWORD and the
+LLM provider's API key) are read from the environment, which can be filled
+from a .env file in the current directory.
 """
 
 import argparse
@@ -35,14 +35,12 @@ from rss_digest.greader import Config, GReaderClient
 
 DEFAULT_MODEL = "anthropic/claude-sonnet-5"
 DEFAULT_HOURS = 24
-DEFAULT_API_PATH = "/api/greader.php"
 MAX_ARTICLES = 2000
 MAX_SUMMARY_LENGTH = 300
 DEFAULT_HISTORY = 3  # ~9k tokens; story threads rarely span more than a few days
 
 # Caps thinking *plus* visible text. Sonnet 5 thinks by default (Sonnet 4.6 did
 # not), so the 4096 that comfortably fit a digest can now truncate one mid-sentence.
-MAX_TOKENS = 16000
 
 SYSTEM_PROMPT = """\
 You are producing a digest of RSS articles.
@@ -220,10 +218,20 @@ def summarize(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": build_prompt(articles, hours, history)},
         ],
-        max_tokens=MAX_TOKENS,
         api_base=api_base,
     )
-    return response.choices[0].message.content
+    choice = response.choices[0]
+    content = choice.message.content
+    # Reasoning models can spend their whole output limit thinking and return
+    # no text; writing that out would produce an empty digest.
+    if not content or not content.strip():
+        usage = getattr(response, "usage", None)
+        tokens = getattr(usage, "completion_tokens", "unknown")
+        raise RuntimeError(
+            f"model returned no text (finish_reason={choice.finish_reason}, "
+            f"completion_tokens={tokens})"
+        )
+    return content
 
 
 def to_html(md_text: str, title: str) -> str:
@@ -246,58 +254,70 @@ def to_html(md_text: str, title: str) -> str:
 
 
 async def main() -> None:
-    # Before argparse reads $GREADER_USERNAME. Variables already set in the
+    # Before anything reads the environment: GREADER_PASSWORD below, and the
+    # LLM provider's API key inside litellm. Variables already set in the
     # environment win over the file.
     load_dotenv(Path(".env"))
 
-    parser = argparse.ArgumentParser(description="Generate an RSS digest")
-    parser.add_argument(
-        "--html", action="store_true", help="Output HTML instead of Markdown"
+    parser = argparse.ArgumentParser(
+        description="Generate an RSS digest",
+        epilog="Secrets come from the environment (or ./.env): GREADER_PASSWORD "
+        "and the LLM provider's API key, e.g. ANTHROPIC_API_KEY.",
     )
-    parser.add_argument(
+
+    greader = parser.add_argument_group("feed reader (GReader API)")
+    greader.add_argument(
+        "--greader-url",
+        required=True,
+        metavar="URL",
+        help="GReader API endpoint, e.g. https://freshrss.example.com/api/greader.php",
+    )
+    greader.add_argument(
+        "--greader-username",
+        required=True,
+        metavar="USER",
+        help="GReader username",
+    )
+    greader.add_argument(
+        "--mark-read",
+        action="store_true",
+        help="Mark fetched articles as read in the feed reader",
+    )
+
+    llm = parser.add_argument_group("LLM")
+    llm.add_argument(
+        "--model",
+        default=DEFAULT_MODEL,
+        metavar="MODEL",
+        help=f"LiteLLM model string (default: {DEFAULT_MODEL})",
+    )
+    llm.add_argument(
+        "--model-url",
+        metavar="URL",
+        help="Base URL of an OpenAI-compatible API or LiteLLM gateway "
+        "(default: the provider's own endpoint)",
+    )
+    llm.add_argument(
+        "--prompt-file",
+        type=Path,
+        metavar="FILE",
+        help="File containing a replacement system prompt",
+    )
+    llm.add_argument(
+        "--print-prompt",
+        action="store_true",
+        help="Print the system prompt and user prompt then exit (no LLM call)",
+    )
+
+    digest = parser.add_argument_group("digest")
+    digest.add_argument(
         "--hours",
         type=int,
         default=DEFAULT_HOURS,
         metavar="N",
         help=f"Hours of articles to include (default: {DEFAULT_HOURS})",
     )
-    parser.add_argument(
-        "--model",
-        default=DEFAULT_MODEL,
-        metavar="MODEL",
-        help=f"LiteLLM model string (default: {DEFAULT_MODEL})",
-    )
-    parser.add_argument(
-        "--api-base",
-        metavar="URL",
-        help="Base URL of an OpenAI-compatible API or LiteLLM gateway "
-        "(default: the provider's own endpoint)",
-    )
-    parser.add_argument(
-        "--url",
-        required=True,
-        metavar="URL",
-        help="GReader service base URL",
-    )
-    parser.add_argument(
-        "--username",
-        default=os.environ.get("GREADER_USERNAME"),
-        metavar="USER",
-        help="GReader username (default: $GREADER_USERNAME)",
-    )
-    parser.add_argument(
-        "--api-path",
-        default=DEFAULT_API_PATH,
-        metavar="PATH",
-        help=f"GReader API path (default: {DEFAULT_API_PATH})",
-    )
-    parser.add_argument(
-        "--system-prompt-file",
-        type=Path,
-        metavar="FILE",
-        help="File containing a replacement system prompt",
-    )
-    parser.add_argument(
+    digest.add_argument(
         "--archive-dir",
         type=Path,
         metavar="DIR",
@@ -306,7 +326,7 @@ async def main() -> None:
         "Reads files named YYYY-MM-DD.md/.html or "
         "digest-YYYY-MM-DD.md; never writes to it",
     )
-    parser.add_argument(
+    digest.add_argument(
         "--history",
         type=int,
         default=None,
@@ -314,28 +334,21 @@ async def main() -> None:
         help=f"How many digests from --archive-dir to send "
         f"(default: {DEFAULT_HISTORY})",
     )
-    parser.add_argument(
-        "--mark-read",
-        action="store_true",
-        help="Mark fetched articles as read in the feed reader",
+    digest.add_argument(
+        "--html", action="store_true", help="Output HTML instead of Markdown"
     )
-    parser.add_argument(
+    digest.add_argument(
         "--output",
         type=Path,
         metavar="PATH",
         help="Output file path (default: ./digest-YYYY-MM-DD.md/html)",
     )
-    parser.add_argument(
+    digest.add_argument(
         "--quiet",
         action="store_true",
         help="Suppress progress messages (errors are always shown)",
     )
-    parser.add_argument(
-        "--print-prompt",
-        action="store_true",
-        help="Print the system prompt and user prompt then exit (no LLM call)",
-    )
-    parser.add_argument(
+    digest.add_argument(
         "--log-file", type=Path, metavar="FILE", help="Append log output to a file"
     )
     args = parser.parse_args()
@@ -350,17 +363,8 @@ async def main() -> None:
     # Only from the environment, so it never shows up in shell history or ps.
     password = os.environ.get("GREADER_PASSWORD")
 
-    missing = [
-        name
-        for name, val in [
-            ("--username / $GREADER_USERNAME", args.username),
-            ("$GREADER_PASSWORD", password),
-        ]
-        if not val
-    ]
-    if missing:
-        for m in missing:
-            print(f"error: missing required value: {m}", file=sys.stderr)
+    if not password:
+        print("error: missing required value: $GREADER_PASSWORD", file=sys.stderr)
         sys.exit(1)
 
     if args.history is not None and args.history > 0 and not args.archive_dir:
@@ -379,15 +383,14 @@ async def main() -> None:
         sys.exit(1)
 
     config = Config(
-        url=args.url,
-        username=args.username,
+        url=args.greader_url,
+        username=args.greader_username,
         password=password,
-        api_path=args.api_path,
     )
 
     system_prompt = SYSTEM_PROMPT
-    if args.system_prompt_file:
-        system_prompt = args.system_prompt_file.read_text()
+    if args.prompt_file:
+        system_prompt = args.prompt_file.read_text()
 
     hours = args.hours
     model = args.model
@@ -423,7 +426,12 @@ async def main() -> None:
     log(f"Summarizing with {model}...")
     try:
         digest = summarize(
-            articles, hours, model, system_prompt, history, api_base=args.api_base
+            articles,
+            hours,
+            model,
+            system_prompt,
+            history,
+            api_base=args.model_url,
         )
     except Exception as e:
         msg = str(e).lower()
