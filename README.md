@@ -30,29 +30,28 @@ pipx install rss-digest
 
 ```bash
 # Set your credentials
-export GREADER_URL=https://freshrss.example.com
 export GREADER_USERNAME=yourname
 export GREADER_PASSWORD=yourpassword
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # Generate a digest of the last 24 hours
-rss-digest
+rss-digest --url https://freshrss.example.com
 ```
 
 The digest is written to `~/Desktop/digest-YYYY-MM-DD.md`. Pass `--html` to get an HTML file instead.
 
 ## Configuration
 
-All options can be set on the command line. Credentials fall back to environment variables (or a `.env` file in the project root) if not provided.
+Settings are passed on the command line. Secrets come from the environment: the GReader password is read only from `GREADER_PASSWORD`, and your LLM provider's API key from its own variable (see [Choosing a model](#choosing-a-model)). The username can be given with `--username` or `GREADER_USERNAME`.
 
 | Option | Env var | Default |
 |--------|---------|---------|
-| `--url URL` | `GREADER_URL` | *(required)* |
+| `--url URL` | | *(required)* |
 | `--username USER` | `GREADER_USERNAME` | *(required)* |
-| `--password PASS` | `GREADER_PASSWORD` | *(required)* |
-| `--api-path PATH` | `GREADER_API_PATH` | `/api/greader.php` |
+| `--api-path PATH` | | `/api/greader.php` |
 | `--hours N` | | `24` |
 | `--model MODEL` | | `anthropic/claude-sonnet-5` |
+| `--api-base URL` | | the provider's endpoint |
 | `--html` | | off |
 | `--system-prompt-file FILE` | | built-in prompt |
 | `--archive-dir DIR` | | off (no history) |
@@ -62,15 +61,14 @@ All options can be set on the command line. Credentials fall back to environment
 | `--quiet` | | off |
 | `--log-file FILE` | | off |
 
+The examples below leave out `--url` to keep them short; every real run needs it.
+
 ```bash
 # Last 48 hours, HTML output
 rss-digest --hours 48 --html
 
 # Use a different model
 rss-digest --model openai/gpt-4o
-
-# Pass credentials on the command line (not recommended for shared machines)
-rss-digest --url https://freshrss.example.com --username alice --password s3cr3t
 ```
 
 ## Continuity between digests
@@ -115,7 +113,7 @@ against a run with `--archive-dir` left off.
 
 ## Choosing a model
 
-`rss-digest` uses [LiteLLM](https://docs.litellm.ai/), so any model it supports works. Set the `--model` flag to a LiteLLM model string and export the corresponding API key.
+`rss-digest` uses [LiteLLM](https://docs.litellm.ai/), so any model it supports works. Set the `--model` flag to a LiteLLM model string and export the corresponding API key. To use an OpenAI-compatible API or a LiteLLM gateway, point `--api-base` at it.
 
 **Anthropic (default)**
 ```bash
@@ -140,13 +138,30 @@ LM Studio lets you run models on your own machine with no API key or usage costs
    identifier with `openai/`, e.g. `openai/google/gemma-4-12b-qat`.
 
 ```bash
-export OPENAI_BASE_URL=http://localhost:1234/v1
 export OPENAI_API_KEY=lm-studio
 
-rss-digest --model openai/google/openai/google/gemma-4-12b-qat
+rss-digest --api-base http://localhost:1234/v1 --model openai/google/gemma-4-12b-qat
 ```
 
 The `OPENAI_API_KEY` value is ignored by LM Studio but required by the LiteLLM library — set it to anything. The model name after `openai/` must match the identifier shown in LM Studio's server tab.
+
+**LiteLLM gateway or other OpenAI-compatible API**
+
+Hosted gateways built on [LiteLLM](https://docs.litellm.ai/docs/simple_proxy), such as [Inference Coop](https://inference.coop), let you use many models through one account. Prefix the gateway's model name with `litellm_proxy/` and put your gateway key in `LITELLM_PROXY_API_KEY`:
+
+```bash
+export LITELLM_PROXY_API_KEY=sk-...
+
+rss-digest --api-base https://gateway.inference.coop --model litellm_proxy/MODEL_NAME
+```
+
+To list the model names the gateway offers:
+
+```bash
+curl -H "Authorization: Bearer $LITELLM_PROXY_API_KEY" https://gateway.inference.coop/v1/models
+```
+
+For any other OpenAI-compatible API, use the `openai/` prefix and `OPENAI_API_KEY` instead, as in the LM Studio example above.
 
 For digest-length tasks, a 7B–14B instruction-tuned model works well. Larger context windows (32k+) are helpful if you have many unread articles.
 
@@ -232,13 +247,12 @@ which rss-digest
 Then open your crontab with `crontab -e` and add:
 
 ```crontab
-GREADER_URL=https://freshrss.example.com
 GREADER_USERNAME=yourname
 GREADER_PASSWORD=yourpassword
 ANTHROPIC_API_KEY=sk-ant-...
 
 # Run at 6am every day, write an HTML digest to a specific folder
-0 6 * * * /Users/yourname/.local/bin/rss-digest --html --quiet --log-file /tmp/rss-digest.log --output /Users/yourname/Documents/digest.html
+0 6 * * * /Users/yourname/.local/bin/rss-digest --url https://freshrss.example.com --html --quiet --log-file /tmp/rss-digest.log --output /Users/yourname/Documents/digest.html
 ```
 
 Crontab env-var lines apply to all jobs below them in the file, so you only need to set them once.
@@ -250,7 +264,7 @@ into a folder you pass as `--archive-dir`. Continuity then reflects only what yo
 actually read, and the job never writes into the folder you curate by hand:
 
 ```crontab
-0 6 * * * /Users/yourname/.local/bin/rss-digest --html --quiet --archive-dir /Users/yourname/Documents/rss-digests --output /Users/yourname/Desktop/`date +\%Y-\%m-\%d`.html
+0 6 * * * /Users/yourname/.local/bin/rss-digest --url https://freshrss.example.com --html --quiet --archive-dir /Users/yourname/Documents/rss-digests --output /Users/yourname/Desktop/`date +\%Y-\%m-\%d`.html
 ```
 
 ## Development

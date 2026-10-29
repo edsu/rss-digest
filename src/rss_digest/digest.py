@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Generate an RSS digest from FreshRSS articles using an LLM.
 
-Model is selected via DIGEST_MODEL env var (default: anthropic/claude-sonnet-5).
-Any litellm-supported model string works, e.g.:
+Model is selected with --model (default: anthropic/claude-sonnet-5). Any
+litellm-supported model string works, e.g.:
   anthropic/claude-sonnet-5     (needs ANTHROPIC_API_KEY)
   openai/gpt-4o                 (needs OPENAI_API_KEY)
-  openai/mistral-7b-instruct    (LM Studio: also set OPENAI_BASE_URL=http://localhost:1234/v1)
+  openai/mistral-7b-instruct    (LM Studio: --api-base http://localhost:1234/v1)
+  litellm_proxy/some-model      (LiteLLM gateway: --api-base URL, LITELLM_PROXY_API_KEY)
 
-Time window defaults to 24 hours; override with DIGEST_HOURS.
+Time window defaults to 24 hours; override with --hours.
+
+Settings come from the command line; only secrets (the GReader username and
+password, and the LLM provider's API key) are read from the environment.
 """
 
 import argparse
@@ -205,6 +209,7 @@ def summarize(
     model: str,
     system_prompt: str = SYSTEM_PROMPT,
     history: list[tuple[str, str]] | None = None,
+    api_base: str | None = None,
 ) -> str:
     if history:
         system_prompt += HISTORY_GUIDANCE
@@ -215,6 +220,7 @@ def summarize(
             {"role": "user", "content": build_prompt(articles, hours, history)},
         ],
         max_tokens=MAX_TOKENS,
+        api_base=api_base,
     )
     return response.choices[0].message.content
 
@@ -257,10 +263,16 @@ async def main() -> None:
         help=f"LiteLLM model string (default: {DEFAULT_MODEL})",
     )
     parser.add_argument(
-        "--url",
-        default=os.environ.get("GREADER_URL"),
+        "--api-base",
         metavar="URL",
-        help="GReader service base URL (default: $GREADER_URL)",
+        help="Base URL of an OpenAI-compatible API or LiteLLM gateway "
+        "(default: the provider's own endpoint)",
+    )
+    parser.add_argument(
+        "--url",
+        required=True,
+        metavar="URL",
+        help="GReader service base URL",
     )
     parser.add_argument(
         "--username",
@@ -269,14 +281,8 @@ async def main() -> None:
         help="GReader username (default: $GREADER_USERNAME)",
     )
     parser.add_argument(
-        "--password",
-        default=os.environ.get("GREADER_PASSWORD"),
-        metavar="PASS",
-        help="GReader password (default: $GREADER_PASSWORD)",
-    )
-    parser.add_argument(
         "--api-path",
-        default=os.environ.get("GREADER_API_PATH", DEFAULT_API_PATH),
+        default=DEFAULT_API_PATH,
         metavar="PATH",
         help=f"GReader API path (default: {DEFAULT_API_PATH})",
     )
@@ -336,12 +342,14 @@ async def main() -> None:
             format="%(asctime)s %(name)s %(levelname)s %(message)s",
         )
 
+    # Only from the environment, so it never shows up in shell history or ps.
+    password = os.environ.get("GREADER_PASSWORD")
+
     missing = [
         name
         for name, val in [
-            ("--url / $GREADER_URL", args.url),
             ("--username / $GREADER_USERNAME", args.username),
-            ("--password / $GREADER_PASSWORD", args.password),
+            ("$GREADER_PASSWORD", password),
         ]
         if not val
     ]
@@ -369,7 +377,7 @@ async def main() -> None:
         _env_file=str(ROOT / ".env"),
         url=args.url,
         username=args.username,
-        password=args.password,
+        password=password,
         api_path=args.api_path,
     )
 
@@ -410,14 +418,17 @@ async def main() -> None:
 
     log(f"Summarizing with {model}...")
     try:
-        digest = summarize(articles, hours, model, system_prompt, history)
+        digest = summarize(
+            articles, hours, model, system_prompt, history, api_base=args.api_base
+        )
     except Exception as e:
         msg = str(e).lower()
         if any(
             w in msg for w in ("credit", "billing", "quota", "insufficient", "payment")
         ):
             print(
-                "error: out of API credits — check your account at console.anthropic.com",
+                "error: out of API credits — check your account with the "
+                f"provider for {model}: {e}",
                 file=sys.stderr,
             )
         else:
