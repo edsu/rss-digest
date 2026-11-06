@@ -262,8 +262,14 @@ def test_prompt_wraps_history_in_a_tagged_block():
 
 def test_prompt_labels_each_digest_with_its_date():
     prompt = build_prompt(ARTICLES, 24, HISTORY)
-    assert "# Digest for 2026-08-16" in prompt
-    assert "# Digest for 2026-08-17" in prompt
+    assert '<digest date="2026-08-16">\n## Old Theme\n\nOld body.\n</digest>' in prompt
+    assert '<digest date="2026-08-17">' in prompt
+
+
+def test_prompt_labels_history_without_a_heading():
+    """A markdown heading per digest gets copied into the new digest's output."""
+    prompt = build_prompt(ARTICLES, 24, HISTORY)
+    assert "Digest for" not in prompt
 
 
 def test_prompt_keeps_history_before_todays_articles():

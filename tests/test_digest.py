@@ -1,11 +1,21 @@
 """Tests for digest utility functions."""
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
 
 from rss_digest import digest as digest_mod
-from rss_digest.digest import build_prompt, strip_html, summarize, to_html
+from rss_digest.digest import (
+    build_prompt,
+    content_report,
+    fetch_articles,
+    strip_html,
+    summarize,
+    to_html,
+    truncate_summaries,
+)
+from rss_digest.greader import Article, Config
 
 
 # --- strip_html ---
@@ -87,6 +97,76 @@ def test_build_prompt_omits_empty_summary():
 def test_build_prompt_hours():
     prompt = build_prompt(ARTICLES, 48)
     assert "48 hours" in prompt
+
+
+# --- fetch_articles ---
+
+
+def test_fetch_articles_keeps_full_summary(monkeypatch):
+    """Truncation happens later, so --verbose can report the full lengths."""
+    long_text = "word " * 1000
+
+    class FakeClient:
+        def __init__(self, config):
+            pass
+
+        async def get_articles(self, **kwargs):
+            return [
+                Article(1, "T", f"<p>{long_text}</p>", "u", 2**40, "F", False, False)
+            ]
+
+        async def aclose(self):
+            pass
+
+    monkeypatch.setattr(digest_mod, "GReaderClient", FakeClient)
+    config = Config(GREADER_URL="u", GREADER_USERNAME="u", GREADER_PASSWORD="p")
+    articles = asyncio.run(fetch_articles(config, 24))
+    assert articles[0]["summary"] == long_text.strip()
+
+
+# --- truncate_summaries ---
+
+
+def test_truncate_summaries_cuts_long_summaries():
+    [short, empty, other] = truncate_summaries(ARTICLES, 6)
+    assert short["summary"] == "Python"
+    assert empty["summary"] == ""
+    assert other["summary"] == "Main S"
+
+
+def test_truncate_summaries_leaves_the_input_alone():
+    truncate_summaries(ARTICLES, 6)
+    assert ARTICLES[0]["summary"] == "Python 4 is out"
+
+
+def test_truncate_summaries_zero_drops_them():
+    assert all(a["summary"] == "" for a in truncate_summaries(ARTICLES, 0))
+
+
+# --- content_report ---
+
+
+def test_content_report_lists_each_feed():
+    report = content_report(ARTICLES)
+    rows = report.splitlines()[2:]
+    assert [r.split()[0] for r in rows] == ["Tech", "Local"]
+
+
+def test_content_report_shows_count_median_and_max():
+    report = content_report(ARTICLES)
+    tech = next(r for r in report.splitlines() if r.startswith("Tech Blog"))
+    # summaries of 15 and 0 characters
+    assert tech.split()[-3:] == ["2", "7", "15"]
+
+
+def test_content_report_puts_thinnest_feeds_first():
+    articles = [
+        {"feed_name": "Full", "summary": "x" * 5000},
+        {"feed_name": "Teaser", "summary": "x" * 200},
+        {"feed_name": "Empty", "summary": ""},
+    ]
+    rows = content_report(articles).splitlines()[2:]
+    assert [r.split()[0] for r in rows] == ["Empty", "Teaser", "Full"]
 
 
 # --- to_html ---
