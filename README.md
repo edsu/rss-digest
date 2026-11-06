@@ -75,9 +75,11 @@ ANTHROPIC_API_KEY=sk-ant-...
 | `--hours N` | `24` |
 | `--archive-dir DIR` | off (no history) |
 | `--history N` | `3` |
+| `--summary-length N` | `1000` ([how much of each article is sent](#how-much-of-each-article-is-sent)) |
 | `--html` | off |
 | `--output PATH` | `./digest-YYYY-MM-DD.md` |
 | `--quiet` | off |
+| `--verbose` | off |
 | `--log-file FILE` | off |
 
 The examples below leave out `--greader-url` and `--greader-username` to keep them short; every real run needs both.
@@ -89,6 +91,34 @@ rss-digest --hours 48 --html
 # Use a different model
 rss-digest --model openai/gpt-4o
 ```
+
+## How much of each article is sent
+
+Each article reaches the LLM as its title, link, feed name and the first
+`--summary-length` characters of the text the feed published (default 1000).
+That's what the digest has to work with: from a headline and a one-line lede the
+model can only restyle the headline, while a few paragraphs let it say what the
+piece actually argues or reports.
+
+How much text there is depends on the feed. Many blogs and long-form publications
+put the whole article in the feed; news sites often send a teaser of a sentence
+or two, and some send nothing at all. `--verbose` prints, for each feed, how many
+articles came in and the median and longest text length, thinnest feeds first:
+
+```
+Summary length per feed (characters, before --summary-length):
+feed                                             n  median     max
+Hugging Face - Blog                              3       0       0
+NYT > Technology                                 9     263     404
+3 Quarks Daily                                  12    1130    7320
+ProPublica                                       2   11715   14533
+```
+
+A longer `--summary-length` only helps feeds that have the text. It costs prompt
+tokens in proportion: about 150 articles at 2000 characters is roughly
+60k tokens. A busy reader with many hundreds of articles a day may need a lower
+setting to stay inside the model's context window; `--summary-length 0` sends
+titles only.
 
 ## Continuity between digests
 
@@ -118,7 +148,7 @@ tunes how many digests to send (default 3) and requires `--archive-dir`.
 
 There is no separate "context" parameter in a chat completion — the block is just
 text prepended to the user message. Measured on a 151-article day with
-`count_tokens`: 25.5k tokens for the articles and ~3k per digest of history, so
+`count_tokens`, at an earlier 300-character summary length: 25.5k tokens for the articles and ~3k per digest of history, so
 `--history 3` puts the whole prompt near 35k. History is a real third of the
 prompt at that setting, but a fraction of a cent per run — nothing worth
 compressing.

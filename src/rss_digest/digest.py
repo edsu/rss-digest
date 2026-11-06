@@ -21,6 +21,7 @@ import html
 import logging
 import os
 import re
+import statistics
 import sys
 import time
 from collections import defaultdict
@@ -36,7 +37,7 @@ from rss_digest.greader import Config, GReaderClient
 DEFAULT_MODEL = "anthropic/claude-sonnet-5"
 DEFAULT_HOURS = 24
 MAX_ARTICLES = 2000
-MAX_SUMMARY_LENGTH = 300
+DEFAULT_SUMMARY_LENGTH = 1000
 DEFAULT_HISTORY = 3  # ~9k tokens; story threads rarely span more than a few days
 
 # Caps thinking *plus* visible text. Sonnet 5 thinks by default (Sonnet 4.6 did
@@ -87,7 +88,7 @@ async def fetch_articles(
     try:
         articles = await client.get_articles(limit=MAX_ARTICLES, since_timestamp=cutoff)
         result = [
-            {**a.to_dict(), "summary": strip_html(a.summary)[:MAX_SUMMARY_LENGTH]}
+            {**a.to_dict(), "summary": strip_html(a.summary)}
             for a in articles
             if a.published >= cutoff
         ]
@@ -98,6 +99,32 @@ async def fetch_articles(
         return result
     finally:
         await client.aclose()
+
+
+def truncate_summaries(articles: list[dict], length: int) -> list[dict]:
+    return [{**a, "summary": a["summary"][:length]} for a in articles]
+
+
+def content_report(articles: list[dict]) -> str:
+    """Per-feed summary lengths, thinnest first, to show which feeds send only teasers.
+
+    Lengths are in characters after stripping HTML, before --summary-length cuts
+    them, so they show what a longer summary could actually draw on.
+    """
+    by_feed: dict[str, list[int]] = defaultdict(list)
+    for a in articles:
+        by_feed[a["feed_name"]].append(len(a["summary"]))
+    rows = sorted(by_feed.items(), key=lambda kv: statistics.median(kv[1]))
+    lines = [
+        "Summary length per feed (characters, before --summary-length):",
+        f"{'feed':<45} {'n':>4} {'median':>7} {'max':>7}",
+    ]
+    for feed, lengths in rows:
+        lines.append(
+            f"{feed[:45]:<45} {len(lengths):>4} "
+            f"{int(statistics.median(lengths)):>7} {max(lengths):>7}"
+        )
+    return "\n".join(lines)
 
 
 DATE_IN_NAME = re.compile(r"(\d{4}-\d{2}-\d{2})")
@@ -338,6 +365,15 @@ async def main() -> None:
         f"(default: {DEFAULT_HISTORY})",
     )
     digest.add_argument(
+        "--summary-length",
+        type=int,
+        default=DEFAULT_SUMMARY_LENGTH,
+        metavar="N",
+        help="Characters of each article's text to send to the LLM; feeds that "
+        f"publish full text give it more to work with (default: "
+        f"{DEFAULT_SUMMARY_LENGTH})",
+    )
+    digest.add_argument(
         "--html", action="store_true", help="Output HTML instead of Markdown"
     )
     digest.add_argument(
@@ -350,6 +386,12 @@ async def main() -> None:
         "--quiet",
         action="store_true",
         help="Suppress progress messages (errors are always shown)",
+    )
+    digest.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Report how much text each feed provides, to spot feeds that "
+        "send only a teaser",
     )
     digest.add_argument(
         "--log-file", type=Path, metavar="FILE", help="Append log output to a file"
@@ -368,6 +410,10 @@ async def main() -> None:
 
     if not password:
         print("error: missing required value: $GREADER_PASSWORD", file=sys.stderr)
+        sys.exit(1)
+
+    if args.summary_length < 0:
+        print("error: --summary-length must be 0 or more", file=sys.stderr)
         sys.exit(1)
 
     if args.history is not None and args.history > 0 and not args.archive_dir:
@@ -412,6 +458,11 @@ async def main() -> None:
     if not articles:
         log("No unread articles found.")
         return
+
+    # Shown even with --quiet: asking for it is more specific than suppressing it.
+    if args.verbose:
+        print(content_report(articles), file=sys.stderr)
+    articles = truncate_summaries(articles, args.summary_length)
 
     history = []
     if args.archive_dir:
