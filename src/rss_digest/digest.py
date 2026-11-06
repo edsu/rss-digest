@@ -186,9 +186,11 @@ def build_prompt(
 
     lines = []
     if history:
+        # A tag rather than a "# Digest for <date>" heading: models copied the
+        # heading into the new digest, dated as the day after the last one.
         lines.append("<previous_digests>")
         for date, text in history:
-            lines.append(f"\n# Digest for {date}\n\n{text.strip()}")
+            lines.append(f'\n<digest date="{date}">\n{text.strip()}\n</digest>')
         lines.append("</previous_digests>\n")
 
     lines.append(f"{len(articles)} unread articles from the last {hours} hours:\n")
