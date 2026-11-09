@@ -26,7 +26,9 @@ import sys
 import time
 from collections import defaultdict
 from datetime import datetime
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import litellm
 from dotenv import load_dotenv
@@ -73,11 +75,165 @@ Do NOT reuse their headings, ordering, or phrasing. Each digest finds its own \
 shape from today's articles. If nothing connects, ignore them entirely.\
 """
 
+# Appended, like HISTORY_GUIDANCE, only when a roundup was split into items.
+# Without it the model tends to give the roundup a section of its own.
+ROUNDUP_GUIDANCE = """
+
+Some feed sections are headed "roundup": a post in which someone else \
+recommends links (a daily best-of, a newsletter, a links blog), split into the \
+links it recommends. Treat each link as an article in its own right: weigh it \
+against everything else and put it under whatever theme it fits, not in a \
+section for the roundup. When you use one, credit the roundup in passing, \
+e.g. "(via Hacker News Daily)". Don't summarise the roundup itself.\
+"""
+
+
+def full_system_prompt(
+    system_prompt: str, articles: list[dict], history: list[tuple[str, str]] | None
+) -> str:
+    """The system prompt plus whichever guidance this run's input calls for."""
+    if history:
+        system_prompt += HISTORY_GUIDANCE
+    if any("roundup" in a for a in articles):
+        system_prompt += ROUNDUP_GUIDANCE
+    return system_prompt
+
 
 def strip_html(s: str | None) -> str:
     s = re.sub(r"<[^>]+>", "", s or "")
     s = html.unescape(s)
     return re.sub(r"\s+", " ", s).strip()
+
+
+# A post is a roundup when most of its text is link text: HN Daily, newsletters
+# and links blogs sit at 0.3–0.85, while essays that cite heavily stay under 0.1
+# however many links they have. Link count alone can't tell the two apart.
+ROUNDUP_LINK_RATIO = 0.25
+ROUNDUP_MIN_LINKS = 3
+# In a roundup a link is the headline of its block, so it comes first: 0.7–1.0
+# of links open their list item or heading, blurb or not. Prose that links a
+# phrase per paragraph puts them mid-sentence (under 0.3), and splitting that
+# would lose the post itself.
+ROUNDUP_HEADLINE_SHARE = 0.5
+# Newsletter boilerplate: a link whose text says nothing about where it goes
+BOILERPLATE_LINK = re.compile(
+    r"^(click here|read more|learn more|subscribe|sign up|here)\b|[→»]$", re.I
+)
+# Caps a link's context; an unclosed block would otherwise run to the end of the post.
+ROUNDUP_CONTEXT_LENGTH = 500
+
+# The element a link sits in supplies its context: its list item, paragraph or
+# heading, rather than the whole post.
+BLOCK_TAGS = {
+    "p", "li", "dd", "dt", "td", "div", "blockquote",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+}  # fmt: skip
+
+
+def collapse(s: str) -> str:
+    return re.sub(r"\s+", " ", s).strip()
+
+
+class LinkScanner(HTMLParser):
+    """Collects each link with its text and the text of the block around it."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.text: list[str] = []
+        self.blocks: list[list[str]] = []
+        # (href, text, index of the block it sits in, or None)
+        self.links: list[tuple[str, list[str], int | None]] = []
+        self._open: list[tuple[str, int]] = []
+        self._link: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in BLOCK_TAGS:
+            # <p> and <li> are often left unclosed; a new one ends the last
+            if tag in ("p", "li") and self._open and self._open[-1][0] == tag:
+                self._open.pop()
+            self.blocks.append([])
+            self._open.append((tag, len(self.blocks) - 1))
+        elif tag == "a":
+            self._link = []
+            block = self._open[-1][1] if self._open else None
+            self.links.append((dict(attrs).get("href") or "", self._link, block))
+        elif tag == "br":
+            self.handle_data(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "a":
+            self._link = None
+        elif tag in BLOCK_TAGS:
+            for i in range(len(self._open) - 1, -1, -1):
+                if self._open[i][0] == tag:
+                    del self._open[i:]
+                    break
+
+    def handle_data(self, data: str) -> None:
+        self.text.append(data)
+        if self._link is not None:
+            self._link.append(data)
+        for _, i in self._open:
+            self.blocks[i].append(data)
+
+
+def roundup_items(article: dict) -> list[dict] | None:
+    """Split a roundup post into one item per link it recommends, else None.
+
+    Stripped to text, a roundup is a run of headlines with no URLs, which the
+    model can neither link nor weigh against other articles. As items they
+    compete on their own merits. Each keeps the post's id and feed, so marking
+    read and the per-feed rules still work, and records the post it came from.
+    """
+    scanner = LinkScanner()
+    scanner.feed(article["summary"] or "")
+    scanner.close()
+    total = len(collapse("".join(scanner.text)))
+    linked = sum(len(collapse("".join(text))) for _, text, _ in scanner.links)
+    if not total or linked / total < ROUNDUP_LINK_RATIO:
+        return None
+
+    own_host = urlsplit(article["url"]).netloc
+    seen = set()
+    items = []
+    headlines = 0
+    for href, text, block in scanner.links:
+        title = collapse("".join(text))
+        parts = urlsplit(href)
+        if (
+            parts.scheme not in ("http", "https")
+            # the roundup's own tags, archives and navigation
+            or parts.netloc == own_host
+            # "via Hacker News"-style links to a site's front page
+            or parts.path in ("", "/")
+            # "(comments)", "[pdf]", bare URLs, image-only links
+            or len(title.split()) < 2
+            or title.startswith(("(", "["))
+            or BOILERPLATE_LINK.search(title)
+            or href in seen
+        ):
+            continue
+        seen.add(href)
+        context = collapse("".join(scanner.blocks[block])) if block is not None else ""
+        headlines += context.startswith(title) or not context
+        # A block that is just the headline adds nothing
+        if len(context) - len(title) < 20:
+            context = ""
+        items.append(
+            {
+                **article,
+                "title": title,
+                "url": href,
+                "summary": context[:ROUNDUP_CONTEXT_LENGTH],
+                "roundup": {"title": article["title"], "url": article["url"]},
+            }
+        )
+    if (
+        len(items) < ROUNDUP_MIN_LINKS
+        or headlines / len(items) < ROUNDUP_HEADLINE_SHARE
+    ):
+        return None
+    return items
 
 
 async def fetch_articles(
@@ -87,18 +243,26 @@ async def fetch_articles(
     cutoff = int(time.time()) - hours * 3600
     try:
         articles = await client.get_articles(limit=MAX_ARTICLES, since_timestamp=cutoff)
-        result = [
-            {**a.to_dict(), "summary": strip_html(a.summary)}
-            for a in articles
-            if a.published >= cutoff
-        ]
+        result = []
+        for a in articles:
+            if a.published < cutoff:
+                continue
+            article = a.to_dict()
+            items = roundup_items(article)
+            result.extend(items or [{**article, "summary": strip_html(a.summary)}])
         if mark_read and result:
             # int() because these articles are plain dicts, so the id's type is
-            # lost on the way through to_dict()
-            await client.mark_as_read([int(a["id"]) for a in result])
+            # lost on the way through to_dict(); a set because a roundup's items
+            # all carry the id of the post they came from
+            await client.mark_as_read(sorted({int(a["id"]) for a in result}))
         return result
     finally:
         await client.aclose()
+
+
+def post_count(articles: list[dict]) -> int:
+    """How many posts came from the reader, counting a split roundup once."""
+    return len({a["id"] for a in articles})
 
 
 def truncate_summaries(articles: list[dict], length: int) -> list[dict]:
@@ -209,7 +373,12 @@ def build_prompt(
 ) -> str:
     by_feed: dict[str, list[dict]] = defaultdict(list)
     for a in articles:
-        by_feed[a["feed_name"]].append(a)
+        heading = a["feed_name"]
+        # Its own heading per roundup, so the model can credit it by name
+        if "roundup" in a:
+            r = a["roundup"]
+            heading += f" — roundup: [{r['title']}]({r['url']})"
+        by_feed[heading].append(a)
 
     lines = []
     if history:
@@ -220,9 +389,11 @@ def build_prompt(
             lines.append(f'\n<digest date="{date}">\n{text.strip()}\n</digest>')
         lines.append("</previous_digests>\n")
 
+    # Counts roundup links one by one, unlike the digest header: the format rules
+    # key off this number, and what the model has to cover is the entries below.
     lines.append(f"{len(articles)} unread articles from the last {hours} hours:\n")
-    for feed_name, feed_articles in sorted(by_feed.items()):
-        lines.append(f"\n## {feed_name}")
+    for heading, feed_articles in sorted(by_feed.items()):
+        lines.append(f"\n## {heading}")
         for a in feed_articles:
             line = f"- [{a['title']}]({a['url']})"
             if a["summary"]:
@@ -239,12 +410,13 @@ def summarize(
     history: list[tuple[str, str]] | None = None,
     api_base: str | None = None,
 ) -> str:
-    if history:
-        system_prompt += HISTORY_GUIDANCE
     response = litellm.completion(
         model=model,
         messages=[
-            {"role": "system", "content": system_prompt},
+            {
+                "role": "system",
+                "content": full_system_prompt(system_prompt, articles, history),
+            },
             {"role": "user", "content": build_prompt(articles, hours, history)},
         ],
         api_base=api_base,
@@ -453,7 +625,13 @@ async def main() -> None:
 
     log(f"Fetching articles (last {hours}h)...")
     articles = await fetch_articles(config, hours, mark_read=args.mark_read)
-    log(f"Got {len(articles)} articles")
+    log(f"Got {post_count(articles)} articles")
+    roundup_links = [a for a in articles if "roundup" in a]
+    if roundup_links:
+        log(
+            f"Split {post_count(roundup_links)} roundup(s) into "
+            f"{len(roundup_links)} links"
+        )
 
     if not articles:
         log("No unread articles found.")
@@ -472,7 +650,7 @@ async def main() -> None:
 
     if args.print_prompt:
         print("=== SYSTEM PROMPT ===")
-        print(system_prompt + (HISTORY_GUIDANCE if history else ""))
+        print(full_system_prompt(system_prompt, articles, history))
         print("\n=== USER PROMPT ===")
         print(build_prompt(articles, hours, history))
         return
@@ -503,7 +681,7 @@ async def main() -> None:
 
     title = f"RSS Digest — {date}"
     site_count = len({a["feed_name"] for a in articles})
-    stats = f"*{len(articles)} articles · {site_count} sites*"
+    stats = f"*{post_count(articles)} articles · {site_count} sites*"
     header = f"# {title}\n\n{stats}\n"
     footnote = f"\n---\n*Generated by `{model}`*"
     if args.html:

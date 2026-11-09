@@ -120,6 +120,21 @@ tokens in proportion: about 150 articles at 2000 characters is roughly
 setting to stay inside the model's context window; `--summary-length 0` sends
 titles only.
 
+### Link roundups
+
+Posts that are mostly a list of other people's links (Hacker News Daily,
+newsletters, links blogs) are sent differently. Reduced to text, such a post is a
+run of headlines with no URLs, so the model could neither link nor weigh them.
+Instead each recommended link is sent as an item of its own, under a heading that
+names the roundup, and the model is asked to file them by theme alongside
+everything else and credit the roundup in passing ("via Hacker News Daily").
+
+A post counts as a roundup when most of its text is link text and the links open
+their list items or headings, as headlines do. Essays that cite heavily, and posts
+with a link in each paragraph, are left as they are. Links back to the roundup's
+own site, front-page links and "(comments)"-style links are skipped. With
+`--print-prompt` you can see which posts were split.
+
 ## Continuity between digests
 
 Point `--archive-dir` at a folder of past digests and they're sent along with the
