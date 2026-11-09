@@ -13,6 +13,7 @@ from rss_digest.digest import (
     content_report,
     fetch_articles,
     full_system_prompt,
+    post_count,
     roundup_items,
     strip_html,
     summarize,
@@ -287,6 +288,15 @@ def test_roundup_items_leave_prose_with_a_link_per_paragraph_alone():
 def test_roundup_items_need_a_few_links():
     one = '<ul><li><a href="https://x.com/a">Only one story here</a></li></ul>'
     assert roundup_items(roundup(one)) is None
+
+
+# --- post_count ---
+
+
+def test_post_count_counts_a_split_roundup_once():
+    items = split(HN_DAILY)
+    other = {"id": 2, "title": "T", "url": "u", "summary": "", "feed_name": "F"}
+    assert post_count([*items, other]) == 2
 
 
 # --- truncate_summaries ---
