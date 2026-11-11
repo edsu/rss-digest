@@ -273,6 +273,46 @@ rss-digest --print-prompt
 
 This is useful for iterating on a custom prompt, checking which articles were fetched, or piping the content to another tool.
 
+### Compiling interests from your bookmarks
+
+A custom prompt works best when it says what you're interested in. If you keep
+bookmarks, `rss-digest-interests` can draft that list for you from a standard
+Netscape `bookmarks.html` export (from a browser, Pinboard and others), using the
+same `--model` and `--model-url` as the digest:
+
+```bash
+rss-digest-interests bookmarks.html --ignore-tags toread,delete
+```
+
+It prints a short bulleted list to paste into your `--prompt-file`:
+
+```
+- data, archives, web archiving: web archives, preservation, warc, metadata, internet archive
+- music and audio: field recording, ambient, radio, sound art, live tapes
+...
+```
+
+A large bookmarks file won't fit in one request, so it's boiled down first. The
+model gets the most used tags, the tags most often used together (a cluster like
+`internet-archive` + `web-archives` says more than either tag alone), a few
+recent titles under each top tag, and a random spread of other titles, so that
+interests you never tagged well can still turn up. For 20,000 bookmarks that's
+about 10k tokens, sent once.
+
+The list is sent with every digest, so keep it short. `--count N` sets roughly
+how many interests to list (default 10).
+
+| Option | Default |
+|--------|---------|
+| `--years N` | `10` (only bookmarks added in the last N years) |
+| `--ignore-tags TAGS` | none (comma-separated, e.g. workflow tags like `toread`) |
+| `--count N` | `10` |
+| `--top-tags N` | `150` |
+| `--top-pairs N` | `100` |
+| `--titles-per-tag N` | `3` |
+| `--random-titles N` | `200` |
+| `--print-prompt` | off |
+
 ## Example output
 
 See [example.md](example.md) for a real digest. A short excerpt:
