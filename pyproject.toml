@@ -19,6 +19,7 @@ Repository = "https://github.com/edsu/rss-digest"
 
 [project.scripts]
 rss-digest = "rss_digest.digest:main_sync"
+rss-digest-interests = "rss_digest.interests:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -410,14 +410,23 @@ def summarize(
     history: list[tuple[str, str]] | None = None,
     api_base: str | None = None,
 ) -> str:
+    return complete(
+        model,
+        full_system_prompt(system_prompt, articles, history),
+        build_prompt(articles, hours, history),
+        api_base,
+    )
+
+
+def complete(
+    model: str, system_prompt: str, user_prompt: str, api_base: str | None = None
+) -> str:
+    """Send one system + user prompt to the model and return its text."""
     response = litellm.completion(
         model=model,
         messages=[
-            {
-                "role": "system",
-                "content": full_system_prompt(system_prompt, articles, history),
-            },
-            {"role": "user", "content": build_prompt(articles, hours, history)},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ],
         api_base=api_base,
     )
